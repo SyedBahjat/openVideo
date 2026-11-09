@@ -1,0 +1,86 @@
+{
+  "name": "openvideo",
+  "productName": "openVideo",
+  "version": "0.1.0",
+  "description": "Open-source screen + camera recorder for macOS and Windows. Record locally, draw on screen, share links that store videos in your own GitHub.",
+  "author": "Syed Bahjat",
+  "license": "MIT",
+  "homepage": "https://github.com/SyedBahjat/openVideo#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SyedBahjat/openVideo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SyedBahjat/openVideo/issues"
+  },
+  "keywords": [
+    "screen-recorder",
+    "loom-alternative",
+    "electron",
+    "video",
+    "screen-recording",
+    "webcam",
+    "async-video",
+    "nextjs",
+    "open-source"
+  ],
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test lib.test.js",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "org.openvideo.app",
+    "files": [
+      "main.js",
+      "preload.js",
+      "lib.js",
+      "share.js",
+      "renderer/**"
+    ],
+    "mac": {
+      "category": "public.app-category.video",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSCameraUsageDescription": "openVideo uses the camera only while you record.",
+        "NSMicrophoneUsageDescription": "openVideo uses the microphone only while you record.",
+        "NSAudioCaptureUsageDescription": "openVideo can record system audio while you record."
+      }
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
+    }
+  }
+}

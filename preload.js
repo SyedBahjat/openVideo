@@ -1,0 +1,39 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+const call = (ch) => (...args) => ipcRenderer.invoke(ch, ...args);
+const listen = (ch) => (fn) => ipcRenderer.on(ch, (_e, v) => fn(v));
+
+contextBridge.exposeInMainWorld('ov', {
+  platform: process.platform,
+  sources: call('sources'),
+  selectSource: call('select-source'),
+  camera: call('camera'),
+  permissions: call('permissions'),
+  openScreenSettings: call('open-screen-settings'),
+  countdown: call('countdown'),
+  recStart: call('rec:start'),
+  chunk: call('rec:chunk'),
+  recStop: call('rec:stop'),
+  recDiscard: call('rec:discard'),
+  list: call('lib:list'),
+  reveal: call('lib:reveal'),
+  copyPath: call('lib:copy'),
+  trash: call('lib:trash'),
+  openDir: call('lib:open-dir'),
+  importVideo: call('lib:import'),
+  shareConfig: call('share:config'),
+  shareSet: call('share:set'),
+  shareLogin: call('share:login'),
+  shareLogout: call('share:logout'),
+  shareUpload: call('share:upload'),
+  openUrl: call('share:open'),
+  onShareCode: listen('share-code'),
+  drawToggle: () => ipcRenderer.send('draw:toggle'),
+  drawOff: () => ipcRenderer.send('draw:off'),
+  onDraw: listen('draw'),
+  control: (action) => ipcRenderer.send('control', action),
+  state: (s) => ipcRenderer.send('state', s),
+  onControl: listen('control'),
+  onState: listen('state'),
+  onRecError: listen('rec-error'),
+});

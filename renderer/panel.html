@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' file: blob: mediastream:; style-src 'self'">
+  <title>openVideo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="panel">
+  <header class="masthead">
+    <h1>open<em>Video</em></h1>
+    <kbd id="shortcut">⌘ ⇧ L</kbd>
+  </header>
+
+  <main>
+    <section aria-labelledby="setup-h" class="setup">
+      <h2 id="setup-h" class="eyebrow">New recording</h2>
+
+      <div class="modes" role="radiogroup" aria-label="Recording mode">
+        <button role="radio" data-mode="screen+cam" aria-checked="true">Screen + Cam</button>
+        <button role="radio" data-mode="screen" aria-checked="false">Screen</button>
+        <button role="radio" data-mode="cam" aria-checked="false">Cam only</button>
+      </div>
+
+      <div id="source-block">
+        <div class="row-head"><span class="eyebrow">Capture</span><button id="refresh" class="link">Refresh</button></div>
+        <div id="sources" class="sources" role="listbox" aria-label="Screens and windows"></div>
+      </div>
+
+      <label class="field" id="cam-field">Camera<select id="cam"></select></label>
+      <label class="field">Microphone<select id="mic"></select></label>
+      <label class="check" id="sys-field"><input type="checkbox" id="sys"> Record system audio <small id="sys-note"></small></label>
+
+      <p id="notice" class="notice" role="alert" hidden></p>
+
+      <button id="start" class="rec"><span class="dot" aria-hidden="true"></span>Start recording</button>
+    </section>
+
+    <details class="sharing" id="sharing">
+      <summary><span class="eyebrow">Sharing</span> <span id="share-status" class="share-status"></span></summary>
+      <div class="sharing-body">
+        <p class="note">Share links save the video to <b>your own GitHub account</b>: free, and it stays yours.
+          The repo is <b>public</b>, so anyone who finds it can watch. Don&rsquo;t share anything private.</p>
+        <ol class="steps">
+          <li id="step-connect"><div><b>Connect GitHub.</b> Your browser opens GitHub with a code; check it matches the one shown here, then click <i>Authorize</i>.</div>
+            <div class="row"><button id="gh-connect" class="pill-btn">Connect GitHub</button><button id="gh-logout" class="link" hidden>Disconnect</button></div>
+            <p id="gh-code" class="code" hidden></p>
+          </li>
+          <li id="step-share"><div><b>Click Share on a recording.</b> The first share creates <span id="repo-name" class="mono">openvideo-recordings</span> in your GitHub and copies the link.</div></li>
+        </ol>
+        <details class="advanced">
+          <summary>Site settings</summary>
+          <label class="field">Website URL<input id="site-url" type="url" spellcheck="false"></label>
+          <label class="field">GitHub OAuth client ID<input id="client-id" spellcheck="false" placeholder="From the site owner's GitHub OAuth App"></label>
+        </details>
+      </div>
+    </details>
+
+    <section aria-labelledby="lib-h" class="library">
+      <div class="row-head"><h2 id="lib-h" class="eyebrow">Library</h2><span class="row"><button id="import" class="link">Add video</button><button id="open-dir" class="link">Open folder</button></span></div>
+      <video id="player" controls hidden></video>
+      <ul id="list" class="list"></ul>
+      <p id="empty" class="empty" hidden>Nothing yet. Your recordings stay on this computer.</p>
+    </section>
+  </main>
+  <script src="panel.js"></script>
+</body>
+</html>
