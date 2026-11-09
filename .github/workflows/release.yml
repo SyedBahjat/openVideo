@@ -1,16 +1,26 @@
 name: Release desktop app
 
-# Push a tag like v0.1.0 to build installers and attach them to a GitHub Release.
+# Push a tag like v0.2.0 to build installers and attach them to one GitHub Release.
 on:
   push:
     tags: ['v*']
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  # Create the release once, up front. If the macOS and Windows jobs each created it,
+  # they would race and leave two releases for the same tag.
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "openVideo ${GITHUB_REF_NAME#v}" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -28,7 +38,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Build and publish
+      - name: Build and upload installers
         run: npx electron-builder ${{ matrix.target }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
