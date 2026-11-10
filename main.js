@@ -35,13 +35,18 @@ function makeWindow(file, opts = {}, query) {
 // relativeLevel keeps the camera + controls stacked above the drawing overlay (level 0).
 function floatAbove(w, relativeLevel = 1) {
   w.setAlwaysOnTop(true, 'screen-saver', relativeLevel);
-  w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  // skipTransformProcessType: without it, macOS turns the whole app into a background (UIElement) app
+  // and the Dock icon disappears.
+  w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
 }
 
 function createPanel() {
   panel = makeWindow('panel.html', { width: 460, height: 760, minWidth: 400, title: 'openVideo' });
   panel.setContentProtection(true); // keep the setup UI out of recordings
-  panel.once('ready-to-show', () => panel.show());
+  panel.once('ready-to-show', () => {
+    panel.show();
+    if (IS_MAC) app.focus({ steal: true }); // first launch from Finder/installer: put the panel in front
+  });
   panel.on('closed', () => app.quit());
 }
 
