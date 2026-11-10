@@ -248,6 +248,8 @@ function shareActions(it) {
     ];
   }
   const b = action('Share', async () => {
+    if (!shareCfg.configured) return notice('Sharing isn\'t available in this build of openVideo.');
+    if (!shareCfg.connected) { pendingShare = () => b.click(); showStep('intro'); return; }
     b.disabled = true;
     b.textContent = 'Uploading…';
     try {
@@ -258,7 +260,6 @@ function shareActions(it) {
       await loadLibrary();
     } catch (err) {
       notice(`Share failed: ${errMsg(err)}`);
-      if (!shareCfg.connected) $('#sharing').open = true; // walk them to the setup steps
       b.disabled = false;
       b.textContent = 'Share';
     }
@@ -266,18 +267,20 @@ function shareActions(it) {
   return [b];
 }
 
+// The connect sheet: intro -> device code -> (account view when already connected).
+let pendingShare = null; // share the user clicked before connecting; resumed after sign-in
+let deviceUrl = '';
+
+function showStep(step) {
+  document.querySelectorAll('#connect [data-step]').forEach((el) => { el.hidden = el.dataset.step !== step; });
+  if (!$('#connect').open) $('#connect').showModal();
+}
+
 function renderShare() {
   const c = shareCfg;
-  const hasShared = Object.keys(c.shares || {}).length > 0;
-  $('#share-status').textContent = c.connected ? `@${c.login}` : 'not set up';
-  $('#step-connect').classList.toggle('done', Boolean(c.connected));
-  $('#step-share').classList.toggle('done', hasShared);
-  $('#gh-connect').hidden = Boolean(c.connected);
-  $('#gh-logout').hidden = !c.connected;
-  $('#repo-name').textContent = c.connected ? `github.com/${c.login}/${c.repo}` : c.repo || 'openvideo-recordings';
-  if (document.activeElement !== $('#site-url')) $('#site-url').value = c.siteUrl || '';
-  if (document.activeElement !== $('#client-id')) $('#client-id').value = c.githubClientId || '';
-  if (!c.githubClientId) $('.advanced').open = true; // the one thing that blocks Connect
+  $('#account').hidden = !c.connected;
+  $('#account').textContent = c.connected ? `@${c.login}` : '';
+  $('#account').title = 'GitHub account used for share links';
 }
 
 async function refreshShare() {
@@ -285,34 +288,40 @@ async function refreshShare() {
   renderShare();
 }
 
-async function saveShareSetting(patch) {
-  try { shareCfg = await ov.shareSet(patch); } catch (err) { notice(errMsg(err)); }
-  renderShare();
-}
-
-$('#site-url').addEventListener('change', (e) => saveShareSetting({ siteUrl: e.target.value }));
-$('#client-id').addEventListener('change', (e) => saveShareSetting({ githubClientId: e.target.value }));
-$('#gh-logout').addEventListener('click', async () => { shareCfg = await ov.shareLogout(); renderShare(); });
-$('#gh-connect').addEventListener('click', async () => {
-  const b = $('#gh-connect');
-  b.disabled = true;
-  b.textContent = 'Waiting for GitHub…';
+async function connectGitHub() {
+  $('#connect-go').disabled = true;
   try {
     shareCfg = await ov.shareLogin();
+    const next = pendingShare; // read before close(): the close handler clears it
+    pendingShare = null;
+    $('#connect').close();
     notice(`Connected to GitHub as @${shareCfg.login}.`);
     refreshStar();
-  } catch (err) {
-    notice(`GitHub sign-in failed: ${errMsg(err)}`);
-  } finally {
-    $('#gh-code').hidden = true;
-    b.disabled = false;
-    b.textContent = 'Connect GitHub';
     renderShare();
+    if (next) next(); // carry on with the share they asked for
+  } catch (err) {
+    const msg = errMsg(err);
+    if (msg !== 'Cancelled') { $('#connect').close(); notice(`GitHub sign-in failed: ${msg}`); }
+  } finally {
+    $('#connect-go').disabled = false;
   }
+}
+
+$('#connect-go').addEventListener('click', connectGitHub);
+$('#reopen').addEventListener('click', () => { if (deviceUrl) ov.openUrl(deviceUrl); });
+$('#account').addEventListener('click', () => {
+  $('#acct-login').textContent = shareCfg.login;
+  $('#acct-repo').textContent = `github.com/${shareCfg.login}/${shareCfg.repo}`;
+  showStep('account');
 });
+$('#acct-repo').addEventListener('click', (e) => { e.preventDefault(); ov.openUrl(`https://github.com/${shareCfg.login}/${shareCfg.repo}`); });
+$('#disconnect').addEventListener('click', async () => { shareCfg = await ov.shareLogout(); $('#connect').close(); renderShare(); refreshStar(); });
+document.querySelectorAll('#connect [data-close]').forEach((b) => b.addEventListener('click', () => $('#connect').close()));
+$('#connect').addEventListener('close', () => { pendingShare = null; ov.shareCancelLogin(); });
 ov.onShareCode(({ userCode, url }) => {
-  $('#gh-code').hidden = false;
-  $('#gh-code').textContent = `Enter ${userCode} at ${url} (opened in your browser)`;
+  deviceUrl = url;
+  $('#device-code').textContent = userCode;
+  showStep('code');
 });
 
 // ---------- star
@@ -369,4 +378,4 @@ navigator.mediaDevices.addEventListener('devicechange', loadDevices);
 
 setMode(mode);
 refreshStar();
-Promise.all([loadDevices(), loadSources(true), refreshShare().then(() => { if (!shareCfg.connected) $('#sharing').open = true; return loadLibrary(); })]).catch((err) => notice(errMsg(err)));
+Promise.all([loadDevices(), loadSources(true), refreshShare().then(() => loadLibrary())]).catch((err) => notice(errMsg(err)));

@@ -5,7 +5,7 @@ const { app, safeStorage, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { normalizeShareSettings } = require('./lib');
+const { SITE_URL, GITHUB_CLIENT_ID } = require('./config');
 
 const GH_REPO = 'openvideo-recordings';
 const PROJECT_REPO = 'SyedBahjat/openVideo'; // this app's own repo, for the Star button
@@ -16,8 +16,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const cfgPath = () => path.join(app.getPath('userData'), 'share-config.json');
 const tokenPath = () => path.join(app.getPath('userData'), 'github-token.bin');
 const DEFAULTS = {
-  siteUrl: process.env.OPENVIDEO_SITE_URL || 'http://localhost:3000',
-  githubClientId: process.env.OPENVIDEO_GITHUB_CLIENT_ID || '',
   login: '',
   shares: {}, // recording file name -> share URL
 };
@@ -41,13 +39,8 @@ function loadToken() {
 }
 
 function publicConfig() {
-  const { siteUrl, githubClientId, login, shares } = readConfig();
-  return { siteUrl, githubClientId, login, shares, connected: Boolean(loadToken()), repo: GH_REPO };
-}
-
-function updateSettings(patch) {
-  writeConfig(normalizeShareSettings(patch));
-  return publicConfig();
+  const { login, shares } = readConfig();
+  return { configured: Boolean(SITE_URL && GITHUB_CLIENT_ID), login, shares, connected: Boolean(loadToken()), repo: GH_REPO };
 }
 
 function logout() {
@@ -74,10 +67,21 @@ const postForm = (url, body) => fetch(url, {
 }).then((r) => r.json());
 
 /** GitHub device flow: show a code, user approves on github.com, we poll for the token. */
+let activeLogin = null; // { cancelled } for the sign-in in progress
+
+function cancelLogin() {
+  if (activeLogin) activeLogin.cancelled = true;
+}
+
 async function login(onCode) {
-  const { githubClientId: clientId } = readConfig();
-  if (!clientId) throw new Error('Enter the GitHub OAuth client ID (from the website\'s OAuth App) first.');
+  const clientId = GITHUB_CLIENT_ID;
+  if (!clientId) throw new Error('Sharing isn\'t set up in this build of openVideo.');
+  const attempt = { cancelled: false };
+  activeLogin = attempt;
   const code = await postForm('https://github.com/login/device/code', { client_id: clientId, scope: 'public_repo' });
+  if (code.error === 'Not Found' || code.error === 'incorrect_client_credentials') {
+    throw new Error('GitHub doesn\'t recognise this build\'s app ID. Please update openVideo.');
+  }
   if (code.error === 'device_flow_disabled') throw new Error('Device Flow is off for this OAuth App. Ask the site owner to tick "Enable Device Flow" in the GitHub OAuth App settings.');
   if (code.error) throw new Error(code.error_description || code.error);
   onCode({ userCode: code.user_code, url: code.verification_uri });
@@ -87,6 +91,7 @@ async function login(onCode) {
   const deadline = Date.now() + code.expires_in * 1000;
   while (Date.now() < deadline) {
     await sleep(interval);
+    if (attempt.cancelled) throw new Error('Cancelled');
     const r = await postForm('https://github.com/login/oauth/access_token', {
       client_id: clientId, device_code: code.device_code, grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
     });
@@ -141,7 +146,7 @@ async function toGithub(cfg, token, blob, type, title) {
     await ghFetch(`/repos/${owner}/${GH_REPO}/git/refs/tags/${tag}`, token, { method: 'DELETE' }).catch(() => {});
     throw new Error(`GitHub upload failed (HTTP ${up.status})`);
   }
-  return new URL(`/v/gh/${owner}/${tag}`, cfg.siteUrl).href;
+  return new URL(`/v/gh/${owner}/${tag}`, SITE_URL).href;
 }
 
 // Turn GitHub API failures into something a non-developer can act on.
@@ -159,7 +164,8 @@ function explain(err) {
 async function share(file, name) {
   const cfg = readConfig();
   const token = loadToken();
-  if (!token) throw Object.assign(new Error('Connect GitHub first: open Sharing and click Connect GitHub.'), { needsSetup: true });
+  if (!SITE_URL) throw new Error('Sharing isn\'t set up in this build of openVideo.');
+  if (!token) throw new Error('Connect GitHub first.');
   const type = name.toLowerCase().endsWith('.webm') ? 'video/webm' : 'video/mp4';
   const blob = await fs.openAsBlob(file, { type }); // streamed from disk, not loaded into memory
   const title = `Recording ${name.replace(/^openVideo /, '').replace(/\.\w+$/, '')}`;
@@ -189,4 +195,4 @@ async function star() {
 
 const markStarNudged = () => { writeConfig({ starNudged: true }); };
 
-module.exports = { publicConfig, updateSettings, login, logout, share, starStatus, star, markStarNudged };
+module.exports = { publicConfig, login, cancelLogin, logout, share, starStatus, star, markStarNudged };

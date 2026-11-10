@@ -9,7 +9,7 @@
 <body class="panel">
   <header class="masthead">
     <h1>open<em>Video</em></h1>
-    <span class="head-right"><button id="star" class="star-btn" title="Star openVideo on GitHub">★ Star</button><kbd id="shortcut">⌘ ⇧ L</kbd></span>
+    <span class="head-right"><button id="account" class="star-btn" hidden></button><button id="star" class="star-btn" title="Star openVideo on GitHub">★ Star</button><kbd id="shortcut">⌘ ⇧ L</kbd></span>
   </header>
 
   <main>
@@ -41,26 +41,6 @@
       <button id="start" class="rec"><span class="dot" aria-hidden="true"></span>Start recording</button>
     </section>
 
-    <details class="sharing" id="sharing">
-      <summary><span class="eyebrow">Sharing</span> <span id="share-status" class="share-status"></span></summary>
-      <div class="sharing-body">
-        <p class="note">Share links save the video to <b>your own GitHub account</b>: free, and it stays yours.
-          The repo is <b>public</b>, so anyone who finds it can watch. Don&rsquo;t share anything private.</p>
-        <ol class="steps">
-          <li id="step-connect"><div><b>Connect GitHub.</b> Your browser opens GitHub with a code; check it matches the one shown here, then click <i>Authorize</i>.</div>
-            <div class="row"><button id="gh-connect" class="pill-btn">Connect GitHub</button><button id="gh-logout" class="link" hidden>Disconnect</button></div>
-            <p id="gh-code" class="code" hidden></p>
-          </li>
-          <li id="step-share"><div><b>Click Share on a recording.</b> The first share creates <span id="repo-name" class="mono">openvideo-recordings</span> in your GitHub and copies the link.</div></li>
-        </ol>
-        <details class="advanced">
-          <summary>Site settings</summary>
-          <label class="field">Website URL<input id="site-url" type="url" spellcheck="false"></label>
-          <label class="field">GitHub OAuth client ID<input id="client-id" spellcheck="false" placeholder="From the site owner's GitHub OAuth App"></label>
-        </details>
-      </div>
-    </details>
-
     <section aria-labelledby="lib-h" class="library">
       <div class="row-head"><h2 id="lib-h" class="eyebrow">Library</h2><span class="row"><button id="import" class="link">Add video</button><button id="open-dir" class="link">Open folder</button></span></div>
       <video id="player" controls hidden></video>
@@ -68,6 +48,26 @@
       <p id="empty" class="empty" hidden>Nothing yet. Your recordings stay on this computer.</p>
     </section>
   </main>
+  <dialog id="connect" class="sheet" aria-labelledby="connect-h">
+    <section data-step="intro">
+      <h2 id="connect-h">Share with a link</h2>
+      <p>openVideo saves shared videos to <b>your own GitHub account</b>, in a repo called <span class="mono">openvideo-recordings</span>. It&rsquo;s free, and the videos stay yours.</p>
+      <p class="note">That repo is public: anyone with the link, or who finds the repo, can watch. Don&rsquo;t share anything private.</p>
+      <div class="row end"><button class="link" data-close>Not now</button><button id="connect-go" class="rec small" autofocus>Connect GitHub</button></div>
+    </section>
+    <section data-step="code" hidden>
+      <h2>Approve openVideo on GitHub</h2>
+      <p>GitHub just opened in your browser. Paste this code there (it&rsquo;s already copied), then click <b>Authorize</b>.</p>
+      <p id="device-code" class="big-code" aria-live="polite"></p>
+      <p class="note waiting"><span class="spinner" aria-hidden="true"></span>Waiting for you to approve on GitHub&hellip;</p>
+      <div class="row end"><button class="link" data-close>Cancel</button><button id="reopen" class="pill-btn">Open GitHub again</button></div>
+    </section>
+    <section data-step="account" hidden>
+      <h2>Connected as @<span id="acct-login"></span></h2>
+      <p>Shared videos go to <a id="acct-repo" href="#"></a> (public). Delete a video by deleting its release on GitHub.</p>
+      <div class="row end"><button id="disconnect" class="link danger">Disconnect</button><button class="pill-btn" data-close>Done</button></div>
+    </section>
+  </dialog>
   <script src="panel.js"></script>
 </body>
 </html>

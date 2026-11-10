@@ -18,24 +18,4 @@ function recordingName(date, ext) {
   return `openVideo ${d} at ${t}${ext}`;
 }
 
-// Trust boundary: share settings come from the renderer. Unknown keys are dropped.
-function normalizeShareSettings(patch) {
-  const out = {};
-  if (!patch || typeof patch !== 'object') return out;
-  if ('siteUrl' in patch) {
-    let u;
-    try { u = new URL(String(patch.siteUrl)); } catch { throw new Error('Site URL must be a full URL like https://openvideo.example'); }
-    if (u.protocol !== 'https:' && !(u.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(u.hostname))) {
-      throw new Error('Site URL must use https (http is allowed only for localhost)');
-    }
-    out.siteUrl = u.origin;
-  }
-  if ('githubClientId' in patch) {
-    const id = String(patch.githubClientId).trim();
-    if (!/^[A-Za-z0-9._-]{0,64}$/.test(id)) throw new Error('That does not look like a GitHub OAuth client ID');
-    out.githubClientId = id;
-  }
-  return out;
-}
-
-module.exports = { EXTS, resolveInside, recordingName, normalizeShareSettings };
+module.exports = { EXTS, resolveInside, recordingName };

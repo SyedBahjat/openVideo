@@ -42,6 +42,7 @@
       "preload.js",
       "lib.js",
       "share.js",
+      "config.js",
       "renderer/**"
     ],
     "mac": {
