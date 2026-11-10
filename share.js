@@ -30,20 +30,29 @@ function writeConfig(patch) {
 }
 
 // The token is encrypted with the OS keychain (Keychain on macOS, DPAPI on Windows); never stored in plain text.
+// On macOS every decrypt may show a keychain prompt ("openVideo Safe Storage"), so only decrypt when a GitHub call
+// actually needs the token, and keep it in memory for the rest of the session.
+let cachedToken = null;
+
 function saveToken(token) {
   if (!safeStorage.isEncryptionAvailable()) throw new Error('The OS keychain is unavailable, so the GitHub token cannot be stored safely.');
   fs.writeFileSync(tokenPath(), safeStorage.encryptString(token), { mode: 0o600 });
+  cachedToken = token;
 }
 function loadToken() {
-  try { return safeStorage.decryptString(fs.readFileSync(tokenPath())); } catch { return null; }
+  if (cachedToken) return cachedToken;
+  try { cachedToken = safeStorage.decryptString(fs.readFileSync(tokenPath())); } catch { cachedToken = null; }
+  return cachedToken;
 }
+const hasToken = () => fs.existsSync(tokenPath()); // no decrypt, so no keychain prompt
 
 function publicConfig() {
   const { login, shares } = readConfig();
-  return { configured: Boolean(SITE_URL && GITHUB_CLIENT_ID), login, shares, connected: Boolean(loadToken()), repo: GH_REPO };
+  return { configured: Boolean(SITE_URL && GITHUB_CLIENT_ID), login, shares, connected: hasToken(), repo: GH_REPO };
 }
 
 function logout() {
+  cachedToken = null;
   fs.rmSync(tokenPath(), { force: true });
   writeConfig({ login: '' });
   return publicConfig();
@@ -175,11 +184,10 @@ async function share(file, name) {
 }
 
 // Star the openVideo repo. Only ever called from an explicit click on "Star".
-async function starStatus() {
-  const token = loadToken();
-  if (!token) return { connected: false, starred: false, nudged: Boolean(readConfig().starNudged) };
-  const res = await ghFetch(`/user/starred/${PROJECT_REPO}`, token).catch(() => null);
-  return { connected: true, starred: res?.status === 204, nudged: Boolean(readConfig().starNudged) };
+// Read from local config (no GitHub call, no keychain prompt at launch).
+function starStatus() {
+  const cfg = readConfig();
+  return { connected: hasToken(), starred: Boolean(cfg.starred), nudged: Boolean(cfg.starNudged) };
 }
 
 async function star() {
@@ -190,6 +198,7 @@ async function star() {
   }
   const res = await ghFetch(`/user/starred/${PROJECT_REPO}`, token, { method: 'PUT', headers: { 'Content-Length': '0' } });
   if (res.status !== 204) throw new Error(`GitHub didn't accept the star (HTTP ${res.status})`);
+  writeConfig({ starred: true });
   return { starred: true, opened: false };
 }
 

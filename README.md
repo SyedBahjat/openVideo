@@ -82,7 +82,7 @@ npm start
 > [!IMPORTANT]
 > The repo is **public**, which is what makes storage free and lets anyone with the link watch. Don't share anything private. Delete a video by deleting its release on GitHub.
 
-The GitHub token is stored encrypted with the OS keychain (Keychain on macOS, DPAPI on Windows), and the app only asks for the `public_repo` scope.
+The GitHub token is stored encrypted with the OS keychain (Keychain on macOS, DPAPI on Windows), and the app only asks for the `public_repo` scope. On macOS you may be asked to let openVideo use **"openVideo Safe Storage"** the first time you share after installing or updating. Click **Always Allow**. (Builds aren't Developer ID-signed yet, so macOS asks again after each update.)
 
 ## Deploy the website to Vercel
 

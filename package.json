@@ -1,7 +1,7 @@
 {
   "name": "openvideo",
   "productName": "openVideo",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Open-source screen + camera recorder for macOS and Windows. Record locally, draw on screen, share links that store videos in your own GitHub.",
   "author": "Syed Bahjat",
   "license": "MIT",
