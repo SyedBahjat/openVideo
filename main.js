@@ -201,6 +201,9 @@ ipcMain.handle('share:config', () => sharing.publicConfig());
 ipcMain.handle('share:set', (_e, patch) => sharing.updateSettings(patch));
 ipcMain.handle('share:login', () => sharing.login((code) => panel?.webContents.send('share-code', code)));
 ipcMain.handle('share:logout', () => sharing.logout());
+ipcMain.handle('star:status', () => sharing.starStatus());
+ipcMain.handle('star:star', () => sharing.star());
+ipcMain.handle('star:nudged', () => sharing.markStarNudged());
 ipcMain.handle('share:upload', async (_e, name) => {
   const url = await sharing.share(resolveInside(DIR, name), name);
   clipboard.writeText(url);

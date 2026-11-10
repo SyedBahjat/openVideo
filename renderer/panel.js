@@ -253,6 +253,7 @@ function shareActions(it) {
     try {
       const link = await ov.shareUpload(it.name);
       notice(`Link copied: ${link}`);
+      maybeNudgeStar();
       await refreshShare();
       await loadLibrary();
     } catch (err) {
@@ -299,6 +300,7 @@ $('#gh-connect').addEventListener('click', async () => {
   try {
     shareCfg = await ov.shareLogin();
     notice(`Connected to GitHub as @${shareCfg.login}.`);
+    refreshStar();
   } catch (err) {
     notice(`GitHub sign-in failed: ${errMsg(err)}`);
   } finally {
@@ -312,6 +314,42 @@ ov.onShareCode(({ userCode, url }) => {
   $('#gh-code').hidden = false;
   $('#gh-code').textContent = `Enter ${userCode} at ${url} (opened in your browser)`;
 });
+
+// ---------- star
+let starState = { starred: false, connected: false, nudged: false };
+
+function renderStar() {
+  $('#star').textContent = starState.starred ? '★ Starred' : '★ Star';
+  $('#star').classList.toggle('on', starState.starred);
+  $('#star').title = starState.starred ? 'Thanks for starring openVideo!' : 'Star openVideo on GitHub';
+}
+
+async function refreshStar() {
+  try { starState = await ov.starStatus(); } catch { /* offline: keep defaults */ }
+  renderStar();
+}
+
+async function handleStar() {
+  if (starState.starred) return;
+  try {
+    const r = await ov.star();
+    if (r.starred) { starState = { ...starState, starred: true }; notice('Thank you for the star! ⭐'); }
+    else notice('Opened openVideo on GitHub. Click ★ Star at the top of the page.');
+  } catch (err) { notice(errMsg(err)); }
+  $('#star-nudge').hidden = true;
+  renderStar();
+}
+
+function maybeNudgeStar() {
+  if (starState.starred || starState.nudged) return;
+  $('#star-nudge').hidden = false;
+  starState = { ...starState, nudged: true };
+  ov.starNudged(); // once per install
+}
+
+$('#star').addEventListener('click', handleStar);
+$('#nudge-star').addEventListener('click', handleStar);
+$('#nudge-close').addEventListener('click', () => { $('#star-nudge').hidden = true; });
 
 // ---------- boot
 document.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
@@ -330,4 +368,5 @@ $('#sys-note').textContent = ov.platform === 'darwin' ? '(macOS 13+, best effort
 navigator.mediaDevices.addEventListener('devicechange', loadDevices);
 
 setMode(mode);
+refreshStar();
 Promise.all([loadDevices(), loadSources(true), refreshShare().then(() => { if (!shareCfg.connected) $('#sharing').open = true; return loadLibrary(); })]).catch((err) => notice(errMsg(err)));

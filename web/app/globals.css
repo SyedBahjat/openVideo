@@ -140,3 +140,14 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .steps code, .ready code { font-size: 13px; background: var(--paper-2); padding: 1px 5px; border-radius: 4px; }
 .ready { margin: 0 0 24px; font-size: 14px; }
 .tag { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; border: 1px solid var(--rule); border-radius: 999px; padding: 1px 8px; margin-left: 6px; color: var(--ink-soft); }
+
+/* ---------- star */
+.star {
+  display: inline-flex; align-items: center; gap: 8px; padding: 11px 16px; border: 1px solid var(--rule); border-radius: var(--radius-l);
+  text-decoration: none; font-weight: 500; transition: border-color 150ms, background 150ms;
+}
+.star > span[aria-hidden] { color: #e3b341; }
+.star:hover { border-color: #e3b341; background: color-mix(in srgb, #e3b341 12%, transparent); }
+.star.compact { padding: 4px 10px; border-radius: 999px; font-size: 13px; }
+.star-count { padding-left: 8px; border-left: 1px solid var(--rule); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.landing .hint { margin-top: 18px; }

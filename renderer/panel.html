@@ -9,7 +9,7 @@
 <body class="panel">
   <header class="masthead">
     <h1>open<em>Video</em></h1>
-    <kbd id="shortcut">⌘ ⇧ L</kbd>
+    <span class="head-right"><button id="star" class="star-btn" title="Star openVideo on GitHub">★ Star</button><kbd id="shortcut">⌘ ⇧ L</kbd></span>
   </header>
 
   <main>
@@ -32,6 +32,11 @@
       <label class="check" id="sys-field"><input type="checkbox" id="sys"> Record system audio <small id="sys-note"></small></label>
 
       <p id="notice" class="notice" role="alert" hidden></p>
+      <div id="star-nudge" class="nudge" hidden>
+        <span>Enjoying openVideo? A star on GitHub helps other people find it.</span>
+        <button id="nudge-star" class="pill-btn">★ Star</button>
+        <button id="nudge-close" class="link" aria-label="Dismiss">Not now</button>
+      </div>
 
       <button id="start" class="rec"><span class="dot" aria-hidden="true"></span>Start recording</button>
     </section>

@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const { normalizeShareSettings } = require('./lib');
 
 const GH_REPO = 'openvideo-recordings';
+const PROJECT_REPO = 'SyedBahjat/openVideo'; // this app's own repo, for the Star button
 const API = 'https://api.github.com';
 const GH_MAX_BYTES = 2e9; // release asset limit
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -167,4 +168,25 @@ async function share(file, name) {
   return url;
 }
 
-module.exports = { publicConfig, updateSettings, login, logout, share };
+// Star the openVideo repo. Only ever called from an explicit click on "Star".
+async function starStatus() {
+  const token = loadToken();
+  if (!token) return { connected: false, starred: false, nudged: Boolean(readConfig().starNudged) };
+  const res = await ghFetch(`/user/starred/${PROJECT_REPO}`, token).catch(() => null);
+  return { connected: true, starred: res?.status === 204, nudged: Boolean(readConfig().starNudged) };
+}
+
+async function star() {
+  const token = loadToken();
+  if (!token) {
+    await shell.openExternal(`https://github.com/${PROJECT_REPO}`);
+    return { starred: false, opened: true };
+  }
+  const res = await ghFetch(`/user/starred/${PROJECT_REPO}`, token, { method: 'PUT', headers: { 'Content-Length': '0' } });
+  if (res.status !== 204) throw new Error(`GitHub didn't accept the star (HTTP ${res.status})`);
+  return { starred: true, opened: false };
+}
+
+const markStarNudged = () => { writeConfig({ starNudged: true }); };
+
+module.exports = { publicConfig, updateSettings, login, logout, share, starStatus, star, markStarNudged };

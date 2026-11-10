@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { headers } from 'next/headers';
 import { GH_REPO, type GhVideo } from '@/lib/github';
 import { CopyLink } from './ClientActions';
+import { desktopDownloadUrl } from './StarButton';
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en', { dateStyle: 'medium' });
 const fmtSize = (b: number) => (b > 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${(b / 1e6).toFixed(1)} MB`);
@@ -14,7 +15,7 @@ export default async function YourVideos({ login, videos, loadError }: Props) {
   const origin = `${h.get('x-forwarded-proto') ?? 'http'}://${h.get('host')}`;
   const repoUrl = `https://github.com/${login}/${GH_REPO}`;
   const isReady = videos !== null;
-  const desktopUrl = process.env.DESKTOP_DOWNLOAD_URL;
+  const desktopUrl = desktopDownloadUrl();
 
   return (
     <section className="library" aria-labelledby="lib-h">
@@ -27,7 +28,7 @@ export default async function YourVideos({ login, videos, loadError }: Props) {
             <li className="done"><div><b>Sign in with GitHub</b>: done, you&apos;re @{login}.</div></li>
             <li><div>
               <b>Install the openVideo desktop app</b> (macOS or Windows).{' '}
-              {desktopUrl && <a href={desktopUrl}>Download it</a>}
+              <a href={desktopUrl}>Download it</a>
             </div></li>
             <li><div>
               <b>Connect GitHub in the app:</b> open <i>Sharing</i> → <i>Connect GitHub</i>. Your browser opens GitHub with a

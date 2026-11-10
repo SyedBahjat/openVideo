@@ -146,3 +146,11 @@ body.paused .time { animation: blink 1s steps(2) infinite; }
 .mono { font: 12px ui-monospace, Menlo, Consolas, monospace; background: var(--paper-2); padding: 1px 5px; border-radius: 4px; }
 .advanced summary { cursor: pointer; font-size: 12px; color: var(--ink-soft); }
 .advanced[open] { display: grid; gap: 10px; }
+
+/* ---------- star */
+.head-right { display: flex; align-items: center; gap: 10px; }
+.star-btn { border: 1px solid var(--rule); background: transparent; color: var(--ink); border-radius: 999px; padding: 3px 10px; font-size: 12px; transition: background 150ms, border-color 150ms; }
+.star-btn:hover { border-color: #e3b341; background: color-mix(in srgb, #e3b341 14%, transparent); }
+.star-btn.on { border-color: #e3b341; color: #b8860b; cursor: default; }
+.nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px; border: 1px dashed #e3b341; border-radius: var(--radius-s); font-size: 13px; }
+.nudge span { flex: 1 1 200px; }
