@@ -22,6 +22,12 @@
         <button role="radio" data-mode="cam" aria-checked="false">Cam only</button>
       </div>
 
+      <section id="perms" class="perms" hidden aria-labelledby="perms-h">
+        <h2 id="perms-h">Let openVideo record</h2>
+        <p class="note">macOS needs your OK before any app can use the screen, camera or microphone. Do each step below. This card disappears when you&rsquo;re done.</p>
+        <ol id="perm-list" class="perm-list"></ol>
+      </section>
+
       <div id="source-block">
         <div class="row-head"><span class="eyebrow">Capture</span><button id="refresh" class="link">Refresh</button></div>
         <div id="sources" class="sources" role="listbox" aria-label="Screens and windows"></div>

@@ -41,21 +41,24 @@ function fillSelect(sel, devices, none) {
 }
 
 async function loadDevices() {
-  // Device labels are only exposed after a permission grant, so ask once up front (also triggers the OS prompt).
-  for (const kind of ['video', 'audio']) {
-    try { stopTracks([await navigator.mediaDevices.getUserMedia({ [kind]: true })]); } catch { /* no device or denied */ }
+  // Labels/ids are only exposed after a grant. Probe only what's already allowed; the permission card asks for the rest.
+  for (const [kind, perm] of [['video', 'camera'], ['audio', 'microphone']]) {
+    if (perms[perm] !== 'granted') continue;
+    try { stopTracks([await navigator.mediaDevices.getUserMedia({ [kind]: true })]); } catch { /* no device */ }
   }
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  fillSelect($('#cam'), devices.filter((d) => d.kind === 'videoinput'), 'No camera');
-  fillSelect($('#mic'), devices.filter((d) => d.kind === 'audioinput'), 'No microphone');
+  const devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.deviceId);
+  fillSelect($('#cam'), devices.filter((d) => d.kind === 'videoinput'), perms.camera === 'granted' ? 'No camera' : 'Camera not allowed yet');
+  fillSelect($('#mic'), devices.filter((d) => d.kind === 'audioinput'), perms.microphone === 'granted' ? 'No microphone' : 'Microphone not allowed yet');
   syncCamera();
 }
 
-async function loadSources(openSettings = false) {
-  const perms = await ov.permissions();
-  if (perms.screen !== 'granted' && perms.screen !== 'not-determined') {
-    notice('Screen Recording permission is off. Enable openVideo in System Settings → Privacy & Security → Screen Recording, then restart openVideo. "Cam only" works meanwhile.');
-    if (openSettings) ov.openScreenSettings();
+async function loadSources() {
+  if (perms.screen !== 'granted') {
+    const empty = document.createElement('p');
+    empty.className = 'sources-empty';
+    empty.textContent = 'Your screens and windows show up here once Screen Recording is allowed (see the steps above).';
+    $('#sources').replaceChildren(empty);
+    sourceId = null;
     return;
   }
   const sources = await ov.sources();
@@ -88,15 +91,17 @@ function setMode(next) {
   $('#sys-field').hidden = mode === 'cam';
   $('#cam-field').hidden = mode === 'screen';
   syncCamera();
+  renderPerms();
 }
 
 function syncCamera() {
-  ov.camera(mode !== 'screen' && $('#cam').value ? $('#cam').value : null);
+  ov.camera(mode !== 'screen' && perms.camera === 'granted' && $('#cam').value ? $('#cam').value : null);
 }
 
 // ---------- recording
 async function start() {
   if (session) return;
+  if (missingPerms().length) { pointAtPerms(); return; }
   $('#start').disabled = true;
   notice('');
   const streams = [];
@@ -360,11 +365,158 @@ $('#star').addEventListener('click', handleStar);
 $('#nudge-star').addEventListener('click', handleStar);
 $('#nudge-close').addEventListener('click', () => { $('#star-nudge').hidden = true; });
 
+// ---------- permissions (spoon-fed: one card, one row per missing permission)
+let perms = { screen: 'granted', camera: 'granted', microphone: 'granted', platform: ov.platform };
+const IS_MAC = ov.platform === 'darwin';
+const PERM_INFO = {
+  screen: { icon: '🖥️', title: 'Screen Recording', why: 'so openVideo can see the screen you want to record' },
+  camera: { icon: '📷', title: 'Camera', why: 'for your camera bubble' },
+  microphone: { icon: '🎙️', title: 'Microphone', why: 'so your voice is in the video' },
+};
+
+function missingPerms() {
+  const need = ['microphone'];
+  if (mode !== 'cam') need.unshift('screen');
+  if (mode !== 'screen') need.push('camera');
+  return need.filter((k) => perms[k] !== 'granted');
+}
+
+// "Click **Open Settings**" -> text with <b> parts, without innerHTML.
+function rich(text) {
+  const p = document.createElement('span');
+  text.split('**').forEach((part, i) => {
+    if (!part) return;
+    if (i % 2) { const b = document.createElement('b'); b.textContent = part; p.append(b); } else p.append(part);
+  });
+  return p;
+}
+
+function button(label, cls, fn) {
+  const b = document.createElement('button');
+  b.className = cls;
+  b.textContent = label;
+  b.addEventListener('click', fn);
+  return b;
+}
+
+function stepsFor(kind) {
+  const status = perms[kind];
+  if (kind === 'screen') {
+    return {
+      steps: [
+        'Click **Open Settings**. It opens **Screen & System Audio Recording**.',
+        'Find **openVideo** in the list and switch it **on**. Not in the list? Click **+**, then pick openVideo in Applications.',
+        'If macOS offers **Quit & Reopen**, click it. Otherwise click **Restart openVideo** here.',
+      ],
+      mock: true,
+      actions: [
+        button('Open Settings', 'pill-btn', () => ov.requestPermission('screen')),
+        button('Restart openVideo', 'link', () => ov.relaunch()),
+      ],
+    };
+  }
+  const name = PERM_INFO[kind].title.toLowerCase();
+  if (IS_MAC && status === 'not-determined') {
+    return {
+      steps: [`Click **Allow ${name}**, then click **Allow** in the box macOS shows.`],
+      actions: [button(`Allow ${name}`, 'pill-btn', () => ov.requestPermission(kind).then(applyPerms))],
+    };
+  }
+  return {
+    steps: IS_MAC
+      ? [`Click **Open Settings**. It opens the **${PERM_INFO[kind].title}** list.`, 'Switch **openVideo** on.', 'Come back here. This card updates by itself.']
+      : [`Click **Open Settings**.`, `Turn on **Let desktop apps access your ${name}**.`, 'Come back here. This card updates by itself.'],
+    mock: IS_MAC,
+    actions: [button('Open Settings', 'pill-btn', () => ov.requestPermission(kind))],
+  };
+}
+
+function permRow(kind) {
+  const info = PERM_INFO[kind];
+  const { steps, actions, mock } = stepsFor(kind);
+  const li = document.createElement('li');
+  li.className = 'perm';
+  const head = document.createElement('div');
+  head.className = 'perm-head';
+  const icon = document.createElement('span');
+  icon.className = 'perm-icon';
+  icon.textContent = info.icon;
+  const title = document.createElement('div');
+  title.append(rich(`**${info.title}**`), document.createElement('br'));
+  const why = document.createElement('small');
+  why.textContent = `Needed ${info.why}.`;
+  title.append(why);
+  const badge = document.createElement('span');
+  badge.className = 'badge';
+  badge.textContent = 'Not allowed yet';
+  head.append(icon, title, badge);
+
+  const ol = document.createElement('ol');
+  ol.className = 'perm-steps';
+  steps.forEach((t) => { const s = document.createElement('li'); s.append(rich(t)); ol.append(s); });
+  li.append(head, ol);
+  if (mock) li.append(settingsMock());
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.append(...actions);
+  li.append(row);
+  return li;
+}
+
+// A tiny picture of the System Settings row they need to find, with the switch flipping on.
+function settingsMock() {
+  const m = document.createElement('div');
+  m.className = 'mock';
+  m.setAttribute('aria-hidden', 'true');
+  const img = new Image();
+  img.src = 'icon.png';
+  img.alt = '';
+  const name = document.createElement('span');
+  name.textContent = 'openVideo';
+  const sw = document.createElement('span');
+  sw.className = 'switch';
+  m.append(img, name, sw);
+  return m;
+}
+
+function renderPerms() {
+  const missing = missingPerms();
+  $('#perms').hidden = missing.length === 0;
+  $('#perm-list').replaceChildren(...missing.map(permRow));
+  $('#start').lastChild.textContent = missing.length ? 'Allow access first' : 'Start recording';
+}
+
+function pointAtPerms() {
+  $('#perms').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#perms').classList.remove('flash');
+  void $('#perms').offsetWidth; // restart the highlight animation
+  $('#perms').classList.add('flash');
+}
+
+async function applyPerms(next) {
+  const before = perms;
+  perms = { ...perms, ...next };
+  const changed = ['screen', 'camera', 'microphone'].some((k) => before[k] !== perms[k]);
+  if (!changed) return;
+  renderPerms();
+  if (before.camera !== perms.camera || before.microphone !== perms.microphone) await loadDevices();
+  if (before.screen !== perms.screen) await loadSources();
+  if (!missingPerms().length) notice('All set. You can record now.');
+}
+
+async function refreshPerms() {
+  try { await applyPerms(await ov.permissions()); } catch { /* keep last known */ }
+}
+
+ov.onPermissionsChanged(applyPerms);
+// While the card is up, keep checking: people flip the switch in Settings and come straight back.
+setInterval(() => { if (!$('#perms').hidden) refreshPerms(); }, 1500);
+
 // ---------- boot
 document.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
 $('#cam').addEventListener('change', syncCamera);
 $('#start').addEventListener('click', start);
-$('#refresh').addEventListener('click', () => loadSources(true));
+$('#refresh').addEventListener('click', () => loadSources());
 $('#open-dir').addEventListener('click', () => ov.openDir());
 $('#import').addEventListener('click', async () => {
   try {
@@ -376,6 +528,9 @@ $('#shortcut').textContent = ov.platform === 'darwin' ? '⌘ ⇧ L' : 'Ctrl Shif
 $('#sys-note').textContent = ov.platform === 'darwin' ? '(macOS 13+, best effort)' : '';
 navigator.mediaDevices.addEventListener('devicechange', loadDevices);
 
-setMode(mode);
-refreshStar();
-Promise.all([loadDevices(), loadSources(true), refreshShare().then(() => loadLibrary())]).catch((err) => notice(errMsg(err)));
+(async () => {
+  try { perms = { ...perms, ...(await ov.permissions()) }; } catch { /* assume granted; capture will report errors */ }
+  setMode(mode);
+  refreshStar();
+  await Promise.all([loadDevices(), loadSources(), refreshShare().then(() => loadLibrary())]);
+})().catch((err) => notice(errMsg(err)));

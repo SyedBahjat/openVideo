@@ -154,3 +154,29 @@ body.paused .time { animation: blink 1s steps(2) infinite; }
 .star-btn.on { border-color: #e3b341; color: #b8860b; cursor: default; }
 .nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px; border: 1px dashed #e3b341; border-radius: var(--radius-s); font-size: 13px; }
 .nudge span { flex: 1 1 200px; }
+
+/* ---------- permission guide */
+.perms { border: 1px solid var(--rec); border-radius: var(--radius-l); padding: 16px; background: color-mix(in srgb, var(--rec) 6%, var(--paper)); display: grid; gap: 10px; }
+.perms h2 { font: 600 18px/1.2 var(--display); margin: 0; }
+.perms > .note { margin: 0; font-size: 12px; color: var(--ink-soft); }
+.perms.flash { animation: flash 900ms var(--ease) 2; }
+@keyframes flash { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--rec) 35%, transparent); } }
+.perm-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.perm { background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius-s); padding: 12px; display: grid; gap: 10px; }
+.perm-head { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: 14px; }
+.perm-head small { color: var(--ink-soft); font-size: 12px; }
+.perm-icon { font-size: 20px; }
+.badge { font-size: 11px; font-weight: 600; color: var(--rec); border: 1px solid currentColor; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.perm-steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13px; }
+.perm-steps li::marker { font-weight: 700; color: var(--rec); }
+.mock {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; font: 13px -apple-system, "Segoe UI", sans-serif;
+  background: #fff; color: #1d1d1f; border: 1px solid #e3e3e6; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+.mock img { width: 22px; height: 22px; }
+.mock span:nth-of-type(1) { flex: 1; }
+.switch { width: 36px; height: 20px; border-radius: 999px; background: #d9d9de; position: relative; animation: switch-bg 2.6s ease-in-out infinite; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); animation: switch-knob 2.6s ease-in-out infinite; }
+@keyframes switch-bg { 0%, 35% { background: #d9d9de; } 50%, 100% { background: #34c759; } }
+@keyframes switch-knob { 0%, 35% { transform: translateX(0); } 50%, 100% { transform: translateX(16px); } }
+.sources-empty { grid-column: 1 / -1; margin: 0; padding: 18px; text-align: center; font-size: 13px; color: var(--ink-soft); border: 1px dashed var(--rule); border-radius: var(--radius-s); }

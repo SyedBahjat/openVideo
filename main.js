@@ -136,9 +136,46 @@ ipcMain.handle('select-source', (_e, id, audio) => {
 
 ipcMain.handle('camera', (_e, deviceId) => showCamera(typeof deviceId === 'string' ? deviceId : null));
 
-ipcMain.handle('permissions', () => (IS_MAC ? { screen: systemPreferences.getMediaAccessStatus('screen') } : { screen: 'granted' }));
+// --- Permissions. macOS: screen / camera / microphone via TCC. Windows: camera / microphone privacy switches.
+const PERM_KINDS = ['screen', 'camera', 'microphone'];
+const SETTINGS_URL = IS_MAC ? {
+  screen: 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
+  camera: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Camera',
+  microphone: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
+} : { camera: 'ms-settings:privacy-webcam', microphone: 'ms-settings:privacy-microphone' };
 
-ipcMain.handle('open-screen-settings', () => shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'));
+function permissionStatus() {
+  const status = (kind) => {
+    if (kind === 'screen' && !IS_MAC) return 'granted'; // Windows has no screen-capture permission
+    try { return systemPreferences.getMediaAccessStatus(kind); } catch { return 'granted'; }
+  };
+  return Object.fromEntries(PERM_KINDS.map((k) => [k, status(k)]));
+}
+
+ipcMain.handle('permissions', () => ({ ...permissionStatus(), platform: process.platform }));
+
+// "Allow" button: show the OS prompt when macOS still can, otherwise open the exact Settings page.
+ipcMain.handle('permissions:request', async (_e, kind) => {
+  if (!PERM_KINDS.includes(kind)) throw new Error(`Unknown permission ${kind}`);
+  const current = permissionStatus()[kind];
+  if (IS_MAC && kind !== 'screen' && current === 'not-determined') {
+    await systemPreferences.askForMediaAccess(kind);
+    return permissionStatus();
+  }
+  if (IS_MAC && kind === 'screen') {
+    // Attempting a capture is what makes macOS list openVideo under Screen & System Audio Recording.
+    await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } }).catch(() => {});
+  }
+  if (SETTINGS_URL[kind]) await shell.openExternal(SETTINGS_URL[kind]);
+  return permissionStatus();
+});
+
+// macOS only applies a new Screen Recording permission after the app restarts.
+ipcMain.handle('app:relaunch', () => { app.relaunch(); app.exit(0); });
+
+// Re-check permissions whenever the user comes back to the app (e.g. from System Settings).
+app.on('browser-window-focus', () => panel?.webContents.send('permissions-changed', permissionStatus()));
+
 
 ipcMain.handle('countdown', () => new Promise((resolve) => {
   const w = makeWindow('countdown.html', { ...OVERLAY, width: 240, height: 240, focusable: false });
