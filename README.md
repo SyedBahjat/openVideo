@@ -13,7 +13,7 @@ The open-source async video recorder for macOS and Windows: a camera bubble, dra
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Web-1d1a16.svg)
 [![GitHub stars](https://img.shields.io/github/stars/SyedBahjat/openVideo?style=social)](https://github.com/SyedBahjat/openVideo/stargazers)
 
-[**Download**](https://github.com/SyedBahjat/openVideo/releases/latest) · [Deploy the website](#deploy-the-website-to-vercel) · [How it works](#how-it-works) · [Loom teardown](docs/EVIDENCE.md)
+[**Install**](#install) · [Deploy the website](#deploy-the-website-to-vercel) · [How it works](#how-it-works) · [Loom teardown](docs/EVIDENCE.md)
 
 <img src="docs/screenshots/desktop-panel.png" width="300" alt="openVideo desktop app">&nbsp;&nbsp;<img src="docs/screenshots/dashboard-light.png" width="560" alt="openVideo website dashboard">
 
@@ -44,11 +44,27 @@ The open-source async video recorder for macOS and Windows: a camera bubble, dra
 
 ## Install
 
-Grab the installer for your platform from **[Releases](https://github.com/SyedBahjat/openVideo/releases/latest)**: `.dmg` for macOS (Apple silicon and Intel), `.exe` for Windows.
+**macOS** (Apple silicon or Intel). Paste this into Terminal:
 
-The builds aren't notarized by Apple or signed for Windows yet, so the OS asks you to confirm on first launch:
-- **macOS:** drag openVideo into Applications and open it. When macOS says it can't verify the app, click **Done**, then go to **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to openVideo. You only do this once. Then allow Camera, Microphone and **Screen Recording** when asked, and reopen the app after granting Screen Recording.
-- **Windows:** on the SmartScreen prompt, click **More info** → **Run anyway**.
+```sh
+curl -fsSL https://raw.githubusercontent.com/SyedBahjat/openVideo/main/install.sh | bash
+```
+
+It downloads the latest release, puts openVideo in Applications and opens it ([read the script](install.sh)). On first launch, allow Camera, Microphone and **Screen Recording** (System Settings → Privacy & Security), then reopen the app.
+
+<details>
+<summary>Prefer the .dmg? Read this first</summary>
+
+openVideo isn't notarized by Apple yet, so macOS blocks it when a browser downloads it ("openVideo is damaged" or "Apple could not verify…"). After dragging it to Applications, run this once to unblock it:
+
+```sh
+xattr -cr /Applications/openVideo.app
+```
+
+This only removes the "downloaded from the internet" flag. Notarized builds, which need no workaround, are on the roadmap.
+</details>
+
+**Windows:** download `openVideo-Setup-x.y.z.exe` from **[Releases](https://github.com/SyedBahjat/openVideo/releases/latest)**. On the SmartScreen prompt, click **More info** → **Run anyway**.
 
 Or run from source:
 
