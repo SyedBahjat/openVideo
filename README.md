@@ -46,8 +46,8 @@ The open-source async video recorder for macOS and Windows: a camera bubble, dra
 
 Grab the installer for your platform from **[Releases](https://github.com/SyedBahjat/openVideo/releases/latest)**: `.dmg` for macOS (Apple silicon and Intel), `.exe` for Windows.
 
-The builds aren't code-signed yet, so the OS warns on first launch:
-- **macOS:** right-click the app → **Open** → **Open**. Then allow Camera, Microphone and **Screen Recording** (System Settings → Privacy & Security), and restart the app.
+The builds aren't notarized by Apple or signed for Windows yet, so the OS asks you to confirm on first launch:
+- **macOS:** drag openVideo into Applications and open it. When macOS says it can't verify the app, click **Done**, then go to **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to openVideo. You only do this once. Then allow Camera, Microphone and **Screen Recording** when asked, and reopen the app after granting Screen Recording.
 - **Windows:** on the SmartScreen prompt, click **More info** → **Run anyway**.
 
 Or run from source:

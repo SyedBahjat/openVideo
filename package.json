@@ -1,7 +1,7 @@
 {
   "name": "openvideo",
   "productName": "openVideo",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Open-source screen + camera recorder for macOS and Windows. Record locally, draw on screen, share links that store videos in your own GitHub.",
   "author": "Syed Bahjat",
   "license": "MIT",
@@ -62,7 +62,8 @@
         "NSCameraUsageDescription": "openVideo uses the camera only while you record.",
         "NSMicrophoneUsageDescription": "openVideo uses the microphone only while you record.",
         "NSAudioCaptureUsageDescription": "openVideo can record system audio while you record."
-      }
+      },
+      "identity": "-"
     },
     "win": {
       "target": [

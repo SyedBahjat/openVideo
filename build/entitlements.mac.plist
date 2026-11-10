@@ -3,6 +3,8 @@
 <plist version="1.0">
 <dict>
   <key>com.apple.security.cs.allow-jit</key><true/>
+  <!-- needed for ad-hoc signed builds with hardened runtime (no Team ID to match libraries against) -->
+  <key>com.apple.security.cs.disable-library-validation</key><true/>
   <key>com.apple.security.device.camera</key><true/>
   <key>com.apple.security.device.audio-input</key><true/>
 </dict>
