@@ -13,7 +13,7 @@ The open-source async video recorder for macOS and Windows: a camera bubble, dra
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Web-1d1a16.svg)
 [![GitHub stars](https://img.shields.io/github/stars/SyedBahjat/openVideo?style=social)](https://github.com/SyedBahjat/openVideo/stargazers)
 
-[**Install**](#install) · [Deploy the website](#deploy-the-website-to-vercel) · [How it works](#how-it-works) · [Loom teardown](docs/EVIDENCE.md)
+[**Install**](#install) · [**Website**](https://open-video-rose.vercel.app) · [Deploy the website](#deploy-the-website-to-vercel) · [How it works](#how-it-works) · [Loom teardown](docs/EVIDENCE.md)
 
 <img src="docs/screenshots/desktop-panel.png" width="300" alt="openVideo desktop app">&nbsp;&nbsp;<img src="docs/screenshots/dashboard-light.png" width="560" alt="openVideo website dashboard">
 
@@ -103,7 +103,7 @@ The website (in [`web/`](web)) provides GitHub sign-in, a setup guide, browser r
    | `GITHUB_TOKEN` *(optional)* | a token with no scopes; raises the GitHub API limit from 60 to 5,000 requests/hour |
    | `DESKTOP_DOWNLOAD_URL` *(optional)* | e.g. this repo's latest release page |
 
-3. **Point the desktop app at your site:** enter the site URL and Client ID in the app under **Sharing → Site settings**, or bake them into builds with `OPENVIDEO_SITE_URL` and `OPENVIDEO_GITHUB_CLIENT_ID`.
+3. **Point the desktop app at your site:** set `SITE_URL` and `GITHUB_CLIENT_ID` in [`config.js`](config.js), or set `OPENVIDEO_SITE_URL` / `OPENVIDEO_GITHUB_CLIENT_ID` when building. The official builds use https://open-video-rose.vercel.app.
 
 The site keeps no database and no stored GitHub tokens. Users only ever authorize; they never create apps or keys.
 

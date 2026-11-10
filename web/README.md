@@ -23,7 +23,7 @@ No database: a watch link `/v/gh/<owner>/<tag>` points straight at the owner's G
    npm test
    npm run build
    ```
-3. Put the same client ID and the deployed site URL in the desktop app (*Sharing → Site settings*), or bake them into builds with `OPENVIDEO_GITHUB_CLIENT_ID` / `OPENVIDEO_SITE_URL`.
+3. Put the same client ID and the deployed site URL in the desktop app's [`config.js`](../config.js), or set `OPENVIDEO_GITHUB_CLIENT_ID` / `OPENVIDEO_SITE_URL` when building.
 
 ## Browser recording
 
