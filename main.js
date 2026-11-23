@@ -1,10 +1,11 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer, session, screen, globalShortcut, shell,
-  systemPreferences, clipboard, dialog } = require('electron');
+  systemPreferences, clipboard, dialog, Menu, nativeImage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const { EXTS, resolveInside, recordingName } = require('./lib');
 const sharing = require('./share');
+const setupTeleprompter = require('./teleprompter');
 
 const IS_MAC = process.platform === 'darwin';
 const SHORTCUT = 'CommandOrControl+Shift+L';
@@ -16,7 +17,8 @@ const DIR = path.join(app.getPath('videos'), 'openVideo');
 // ScreenCaptureKit path on macOS 13+. If a future Electron drops them, mac system audio silently records nothing.
 if (IS_MAC) app.commandLine.appendSwitch('enable-features', 'MacLoopbackAudioForScreenShare,MacSckSystemAudioLoopbackOverride');
 
-let panel, camera, controls, drawing;
+let panel, camera, controls, drawing, prompter, launcher;
+let barState = {}; // what the panel last reported for the recording bar (source, camera, mic, ...)
 let drawOn = false;
 let selected = null; // { id, audio, displayId } chosen in the panel before getDisplayMedia()
 const displayBySource = new Map(); // desktopCapturer source id -> display id ('' for windows)
@@ -41,7 +43,7 @@ function floatAbove(w, relativeLevel = 1) {
 }
 
 function createPanel() {
-  panel = makeWindow('panel.html', { width: 460, height: 760, minWidth: 400, title: 'openVideo' });
+  panel = makeWindow('panel.html', { width: 1080, height: 780, minWidth: 880, minHeight: 620, title: 'openVideo' });
   panel.setContentProtection(true); // keep the setup UI out of recordings
   panel.once('ready-to-show', () => {
     panel.show();
@@ -111,6 +113,7 @@ function hideDrawing() {
 function backToPanel() {
   hideDrawing();
   hideControls();
+  showLauncher();
   panel.show();
   panel.focus();
 }
@@ -120,6 +123,61 @@ function closeRecording() {
   rec = null;
   return new Promise((resolve, reject) => out.end((err) => (err ? reject(err) : resolve(file))));
 }
+
+// --- Recording bar: a floating pill (like Loom/Recordly) to pick a source, toggle camera/mic/system audio/
+// teleprompter and hit Record without opening the main window. Hidden from the recording; the panel owns the state.
+const BAR = { width: 640, height: 64 };
+
+function showLauncher() {
+  if (launcher && !launcher.isDestroyed()) { launcher.showInactive(); return; }
+  const { workArea } = screen.getPrimaryDisplay();
+  launcher = makeWindow('launcher.html', { ...OVERLAY, ...BAR, focusable: true,
+    x: Math.round(workArea.x + (workArea.width - BAR.width) / 2), y: workArea.y + workArea.height - BAR.height - 20 });
+  launcher.setContentProtection(true);
+  floatAbove(launcher);
+  launcher.once('ready-to-show', () => { launcher.showInactive(); sendBar(); });
+  launcher.on('closed', () => { launcher = null; });
+}
+
+function hideLauncher() {
+  if (launcher && !launcher.isDestroyed()) launcher.hide();
+}
+
+function sendBar() {
+  launcher?.webContents.send('bar:state', { ...barState, tp: prompter.isOpen(), platform: process.platform });
+}
+
+async function sourceMenu() {
+  const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 64, height: 40 } });
+  const item = (s) => ({
+    label: s.name.length > 48 ? `${s.name.slice(0, 47)}…` : s.name,
+    type: 'radio', checked: barState.mode !== 'cam' && barState.sourceId === s.id,
+    icon: s.thumbnail.isEmpty() ? undefined : s.thumbnail,
+    click: () => panel.webContents.send('bar', { action: 'source', id: s.id }),
+  });
+  const visible = sources.filter((s) => !s.name.startsWith('openVideo'));
+  Menu.buildFromTemplate([
+    { label: 'Screens', enabled: false }, ...visible.filter((s) => s.id.startsWith('screen:')).map(item),
+    { type: 'separator' },
+    { label: 'Windows', enabled: false }, ...visible.filter((s) => !s.id.startsWith('screen:')).map(item),
+    { type: 'separator' },
+    { label: 'Camera only', type: 'radio', checked: barState.mode === 'cam', click: () => panel.webContents.send('bar', { action: 'cam-only' }) },
+  ]).popup({ window: launcher });
+}
+
+ipcMain.on('bar:state', (_e, s) => { barState = s && typeof s === 'object' ? s : {}; sendBar(); });
+ipcMain.handle('bar:get', () => ({ ...barState, tp: prompter.isOpen(), platform: process.platform }));
+ipcMain.on('bar:do', (_e, action) => {
+  if (action === 'source') sourceMenu().catch((err) => console.warn('openVideo: source menu', err));
+  else if (action === 'panel') { panel.show(); panel.focus(); }
+  else if (action === 'hide') hideLauncher();
+  else if (action === 'show') showLauncher();
+  else if (action === 'teleprompter') prompter.toggle();
+  else if (['camera', 'mic', 'sys', 'record'].includes(action)) {
+    if (action === 'record' && barState.needsPerms) { panel.show(); panel.focus(); }
+    panel.webContents.send('bar', { action });
+  }
+});
 
 // --- IPC
 ipcMain.handle('sources', async () => {
@@ -184,6 +242,7 @@ ipcMain.handle('countdown', () => new Promise((resolve) => {
   floatAbove(w);
   w.once('ready-to-show', () => w.showInactive());
   panel.hide();
+  hideLauncher();
   setTimeout(() => { if (!w.isDestroyed()) w.destroy(); resolve(); }, COUNTDOWN_MS);
 }));
 
@@ -196,6 +255,7 @@ ipcMain.handle('rec:start', async (_e, ext, withDrawing) => {
   rec.out.on('error', (err) => panel.webContents.send('rec-error', err.message));
   showControls();
   if (withDrawing) showDrawing();
+  prompter.recording('recording');
   return file;
 });
 
@@ -206,11 +266,13 @@ ipcMain.handle('rec:chunk', (_e, buf) => new Promise((resolve, reject) => {
 }));
 
 ipcMain.handle('rec:stop', async () => {
+  prompter.recording('stopped');
   if (!rec) { backToPanel(); return null; }
   try { return await closeRecording(); } finally { backToPanel(); }
 });
 
 ipcMain.handle('rec:discard', async () => {
+  prompter.recording('stopped');
   if (!rec) { backToPanel(); return null; }
   const file = rec.file;
   try {
@@ -222,7 +284,10 @@ ipcMain.handle('rec:discard', async () => {
 
 // Controls pill -> panel (which owns the MediaRecorder), and panel state -> pill.
 ipcMain.on('control', (_e, action) => panel?.webContents.send('control', String(action)));
-ipcMain.on('state', (_e, s) => controls?.webContents.send('state', s));
+ipcMain.on('state', (_e, s) => {
+  controls?.webContents.send('state', s);
+  if (rec) prompter.recording(s?.paused ? 'paused' : 'recording');
+});
 ipcMain.on('draw:toggle', toggleDraw);
 ipcMain.on('draw:off', () => setDraw(false));
 
@@ -288,7 +353,9 @@ app.whenReady().then(() => {
     }
   });
 
+  prompter = setupTeleprompter({ makeWindow, floatAbove, getPanel: () => panel, onState: sendBar });
   createPanel();
+  showLauncher();
   if (!globalShortcut.register(SHORTCUT, () => panel?.webContents.send('control', 'toggle'))) {
     console.warn(`openVideo: shortcut ${SHORTCUT} is taken by another app`);
   }

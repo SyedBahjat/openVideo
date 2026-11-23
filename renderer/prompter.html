@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'">
+  <title>openVideo teleprompter</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="overlay prompter locked">
+  <div class="tp-shell">
+    <header class="tp-bar">
+      <span class="tp-status"><span id="dot" class="tp-dot" aria-hidden="true"></span><span id="status" aria-live="polite">Paused</span></span>
+      <span class="tp-tools" role="toolbar" aria-label="Teleprompter">
+        <button id="b-run" aria-label="Start">▶</button>
+        <button id="b-restart" aria-label="Back to the start">⟲</button>
+        <button id="b-mode" title="How it scrolls">Voice</button>
+        <span id="speed" class="tp-speed" hidden>
+          <button id="b-slower" aria-label="Slower">−</button><output id="wpm"></output><button id="b-faster" aria-label="Faster">+</button>
+        </span>
+        <button id="b-smaller" title="Smaller text">A−</button>
+        <button id="b-bigger" title="Bigger text">A+</button>
+        <button id="b-lock">Lock</button>
+        <button id="b-close" aria-label="Close teleprompter" title="Close">✕</button>
+      </span>
+    </header>
+    <div class="tp-stage">
+      <div id="view" class="tp-view"><div id="text" class="tp-text"></div></div>
+      <div class="tp-marker" aria-hidden="true"></div>
+    </div>
+    <footer id="hint" class="tp-hint"></footer>
+  </div>
+  <script src="prompter-core.js"></script>
+  <script src="prompter.js"></script>
+</body>
+</html>

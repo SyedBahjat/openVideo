@@ -23,7 +23,15 @@ jobs:
       - run: npm ci
       - run: npm test
       - name: Syntax check
-        run: for f in main.js preload.js share.js lib.js renderer/*.js; do node --check "$f"; done
+        run: for f in main.js preload.js share.js lib.js teleprompter.js renderer/*.js; do node --check "$f"; done
+
+  speech-helper:
+    name: Teleprompter speech helper (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh native/build-mac.sh
+      - run: lipo -archs native/bin/openvideo-speech
 
   web:
     name: Website

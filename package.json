@@ -1,8 +1,8 @@
 {
   "name": "openvideo",
   "productName": "openVideo",
-  "version": "0.1.7",
-  "description": "Open-source screen + camera recorder for macOS and Windows. Record locally, draw on screen, share links that store videos in your own GitHub.",
+  "version": "0.2.0",
+  "description": "Open-source screen + camera recorder for macOS and Windows. Record locally, read from a voice-following teleprompter only you can see, draw on screen, share links that store videos in your own GitHub.",
   "author": "Syed Bahjat",
   "license": "MIT",
   "homepage": "https://github.com/SyedBahjat/openVideo#readme",
@@ -22,14 +22,17 @@
     "webcam",
     "async-video",
     "nextjs",
-    "open-source"
+    "open-source",
+    "teleprompter"
   ],
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test lib.test.js",
+    "test": "node --test lib.test.js prompter.test.js",
     "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win"
+    "dist:win": "electron-builder --win",
+    "build:speech": "sh native/build-mac.sh",
+    "predist:mac": "npm run build:speech"
   },
   "devDependencies": {
     "electron": "^45.2.3",
@@ -43,7 +46,8 @@
       "lib.js",
       "share.js",
       "config.js",
-      "renderer/**"
+      "renderer/**",
+      "teleprompter.js"
     ],
     "mac": {
       "category": "public.app-category.video",
@@ -62,9 +66,16 @@
       "extendInfo": {
         "NSCameraUsageDescription": "openVideo uses the camera only while you record.",
         "NSMicrophoneUsageDescription": "openVideo uses the microphone only while you record.",
-        "NSAudioCaptureUsageDescription": "openVideo can record system audio while you record."
+        "NSAudioCaptureUsageDescription": "openVideo can record system audio while you record.",
+        "NSSpeechRecognitionUsageDescription": "openVideo uses on-device speech recognition so the teleprompter can follow along as you read."
       },
-      "identity": "-"
+      "identity": "-",
+      "extraResources": [
+        {
+          "from": "native/bin/openvideo-speech",
+          "to": "speech/openvideo-speech"
+        }
+      ]
     },
     "win": {
       "target": [
@@ -73,6 +84,12 @@
           "arch": [
             "x64"
           ]
+        }
+      ],
+      "extraResources": [
+        {
+          "from": "native/speech-win.ps1",
+          "to": "speech/speech-win.ps1"
         }
       ]
     },

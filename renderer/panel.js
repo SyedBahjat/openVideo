@@ -50,6 +50,7 @@ async function loadDevices() {
   fillSelect($('#cam'), devices.filter((d) => d.kind === 'videoinput'), perms.camera === 'granted' ? 'No camera' : 'Camera not allowed yet');
   fillSelect($('#mic'), devices.filter((d) => d.kind === 'audioinput'), perms.microphone === 'granted' ? 'No microphone' : 'Microphone not allowed yet');
   syncCamera();
+  reportBar();
 }
 
 async function loadSources() {
@@ -82,6 +83,7 @@ async function loadSources() {
 
 function markSource() {
   document.querySelectorAll('.source').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.id === sourceId)));
+  reportBar();
 }
 
 function setMode(next) {
@@ -151,6 +153,7 @@ async function start() {
     video.addEventListener('ended', stop); // user hit the OS "Stop sharing" button
     rec.start(CHUNK_MS);
     ov.state({ paused: false });
+    reportBar();
   } catch (err) {
     stopTracks(streams);
     if (fileOpen) await ov.recDiscard();
@@ -176,6 +179,7 @@ async function finish(s) {
     s.error = s.error || err;
   }
   $('#start').disabled = false;
+  reportBar();
   if (s.error) notice(`Recording stopped early: ${errMsg(s.error)}. Whatever was saved is kept in the library.`);
   await loadLibrary(name);
   if (s.restart) start();
@@ -213,6 +217,7 @@ function action(label, fn) {
 
 async function loadLibrary(highlight) {
   const items = await ov.list();
+  $('#lib-count').textContent = items.length ? `${items.length} recording${items.length === 1 ? '' : 's'}` : 'Your recordings';
   $('#empty').hidden = items.length > 0;
   $('#list').replaceChildren(...items.map((it) => {
     const li = document.createElement('li');
@@ -240,7 +245,7 @@ async function loadLibrary(highlight) {
     return li;
   }));
   const fresh = items.find((i) => i.name === highlight);
-  if (fresh) play(fresh);
+  if (fresh) { showView('library'); play(fresh); }
 }
 
 // ---------- sharing
@@ -484,6 +489,7 @@ function renderPerms() {
   $('#perms').hidden = missing.length === 0;
   $('#perm-list').replaceChildren(...missing.map(permRow));
   $('#start').lastChild.textContent = missing.length ? 'Allow access first' : 'Start recording';
+  reportBar();
 }
 
 function pointAtPerms() {
@@ -512,6 +518,45 @@ ov.onPermissionsChanged(applyPerms);
 // While the card is up, keep checking: people flip the switch in Settings and come straight back.
 setInterval(() => { if (!$('#perms').hidden) refreshPerms(); }, 1500);
 
+// ---------- sections (sidebar tabs)
+function showView(name) {
+  document.querySelectorAll('[role="tab"]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.view === name)));
+  document.querySelectorAll('.view').forEach((v) => { v.hidden = v.id !== `view-${name}`; });
+}
+
+// ---------- recording bar (floating pill). The panel owns the choices; the bar mirrors them and sends actions.
+let lastMic = '';
+const optionText = (sel) => (sel.value ? sel.selectedOptions[0]?.textContent || '' : '');
+const hasDevice = (sel) => [...sel.options].some((o) => o.value);
+
+function reportBar() {
+  const src = [...document.querySelectorAll('.source')].find((b) => b.dataset.id === sourceId);
+  ov.bar.report({
+    mode, sourceId, sourceName: src ? src.querySelector('span').textContent.replace(/^🖥 /, '') : '',
+    hasCamera: hasDevice($('#cam')), cameraName: optionText($('#cam')),
+    hasMic: hasDevice($('#mic')), mic: Boolean($('#mic').value), micName: optionText($('#mic')),
+    sys: $('#sys').checked, needsPerms: missingPerms().length > 0, recording: Boolean(session),
+  });
+}
+
+ov.bar.onAction(async ({ action, id }) => {
+  if (action === 'source') {
+    if (mode === 'cam') setMode('screen+cam');
+    sourceId = String(id);
+    await loadSources(); // a window opened after our last refresh may be new to the grid
+  } else if (action === 'cam-only') setMode('cam');
+  else if (action === 'camera') setMode(mode === 'screen+cam' ? 'screen' : mode === 'cam' ? 'screen' : 'screen+cam');
+  else if (action === 'mic') {
+    const mic = $('#mic');
+    if (mic.value) { lastMic = mic.value; mic.value = ''; }
+    else mic.value = [...mic.options].some((o) => o.value === lastMic) ? lastMic : ([...mic.options].find((o) => o.value)?.value ?? '');
+  } else if (action === 'sys') $('#sys').checked = !$('#sys').checked;
+  else if (action === 'record') {
+    if (missingPerms().length) { showView('record'); pointAtPerms(); } else start();
+  }
+  reportBar();
+});
+
 // ---------- boot
 document.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
 $('#cam').addEventListener('change', syncCamera);
@@ -525,6 +570,12 @@ $('#import').addEventListener('click', async () => {
   } catch (err) { notice(`Could not add video: ${errMsg(err)}`); }
 });
 $('#shortcut').textContent = ov.platform === 'darwin' ? '⌘ ⇧ L' : 'Ctrl Shift L';
+$('#shortcut2').textContent = $('#shortcut').textContent;
+if (ov.platform !== 'darwin') $('#feat-draw').textContent = 'Point things out with Ctrl+Shift+D';
+$('#mic').addEventListener('change', reportBar);
+$('#sys').addEventListener('change', reportBar);
+$('#show-bar').addEventListener('click', () => ov.bar.act('show'));
+document.querySelectorAll('[role="tab"]').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
 $('#sys-note').textContent = ov.platform === 'darwin' ? '(macOS 13+, best effort)' : '';
 navigator.mediaDevices.addEventListener('devicechange', loadDevices);
 

@@ -15,7 +15,9 @@ The open-source async video recorder for macOS and Windows: a camera bubble, dra
 
 [**Install**](#install) · [**Website**](https://open-video-rose.vercel.app) · [Deploy the website](#deploy-the-website-to-vercel) · [How it works](#how-it-works) · [Loom teardown](docs/EVIDENCE.md)
 
-<img src="docs/screenshots/desktop-panel.png" width="300" alt="openVideo desktop app">&nbsp;&nbsp;<img src="docs/screenshots/dashboard-light.png" width="560" alt="openVideo website dashboard">
+<img src="docs/screenshots/desktop-panel.png" width="760" alt="openVideo desktop app: pick screen + camera, screen or camera only">
+
+<img src="docs/screenshots/recording-bar.png" width="560" alt="Floating recording bar: source picker, camera, mic, system audio, teleprompter, Record">
 
 </div>
 
@@ -23,8 +25,8 @@ The open-source async video recorder for macOS and Windows: a camera bubble, dra
 
 - **Free, with no account limits.** No 5-minute cap, no "upgrade to keep your videos". Recordings live on your disk, and shared videos live in your own GitHub repo.
 - **Your data stays yours.** openVideo has no video servers at all. Each shared video is a release in `github.com/<you>/openvideo-recordings`.
-- **Works like the tools you know.** Camera bubble, countdown, pause/resume/restart, drawing, a global shortcut, and a link in your clipboard the moment you share.
-- **Small, readable code.** Plain Electron + vanilla JS for the desktop app, and Next.js for the site. No native code to compile.
+- **Works like the tools you know.** Camera bubble, countdown, pause/resume/restart, drawing, a teleprompter that follows your voice, a global shortcut, and a link in your clipboard the moment you share.
+- **Small, readable code.** Plain Electron + vanilla JS for the desktop app, and Next.js for the site. The only native code is a ~90-line Swift speech helper for the teleprompter.
 
 ## Features
 
@@ -34,6 +36,8 @@ The open-source async video recorder for macOS and Windows: a camera bubble, dra
 | Floating camera bubble that appears in the video | ✅ draggable circle | ✅ Picture-in-Picture window |
 | Countdown, pause / resume / restart / cancel, timer | ✅ floating control bar, hidden from the recording | ✅ pause / resume |
 | Draw on screen while recording | ✅ <kbd>⌘/Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>D</kbd>, 4 colours | — |
+| Teleprompter only you can see (hidden from the recording) | ✅ follows your voice, auto-scroll or manual; click-through | — |
+| Floating recording bar | ✅ pick a screen/window, toggle camera, mic, audio and teleprompter, hit Record | — |
 | Mic + system audio | ✅ mixed into one track | ✅ mic + tab/system audio |
 | Start/stop shortcut | ✅ <kbd>⌘/Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>L</kbd> | — |
 | Output | H.264/AAC MP4, written to disk every second (crash-safe) | MP4 or WebM download |
@@ -73,6 +77,28 @@ git clone https://github.com/SyedBahjat/openVideo.git && cd openVideo
 npm install
 npm start
 ```
+
+## Teleprompter
+
+<img src="docs/screenshots/teleprompter.png" width="700" alt="The teleprompter following along as you read">
+
+Open **Teleprompter** in the app, write or import your script (`.txt` / `.md`), and click **Open teleprompter**. It floats at the top of the screen, right under your camera, so your eyes stay near the lens.
+
+- **Only you see it.** The window is content-protected, like the control bar, so it stays out of the recording and out of screen sharing.
+- **Follow my voice** moves along as you read, using on-device speech recognition on macOS (Windows is in beta and uses Windows speech recognition). **Auto-scroll** runs at a speed you pick and starts and pauses with the recording. **Manual** stays put until you move it.
+- **Click-through** (on by default) lets clicks pass to the app behind it. Turn it off with <kbd>⌃⌥L</kbd> / <kbd>Ctrl+Alt+L</kbd> to drag, resize, or click a word to jump there.
+- **Script format:** a blank line starts a paragraph, `# Title` is a section heading, and `[notes]` are shown small but never read or tracked.
+
+| Shortcut (⌃⌥ on macOS, Ctrl+Alt on Windows) | |
+|---|---|
+| Space | Start / pause |
+| ↑ / ↓ | Back / forward a few words |
+| 0 | Back to the start |
+| L | Lock / unlock (click-through) |
+| T | Hide / show |
+| = / − | Bigger / smaller text |
+
+<img src="docs/screenshots/teleprompter-setup.png" width="700" alt="Teleprompter settings: script editor, scroll mode, size, click-through">
 
 ## Share links: how storage works
 
@@ -116,7 +142,9 @@ openVideo follows the same architecture as Loom Desktop ([teardown with evidence
    ├─ camera window    transparent, always on top  → captured in the video
    ├─ drawing overlay  transparent, click-through  → captured in the video
    ├─ control bar      content-protected           → hidden from the video
-   └─ countdown        content-protected
+   ├─ recording bar    content-protected           → hidden from the video
+   ├─ countdown        content-protected
+   └─ teleprompter     content-protected, click-through → hidden from the video
 
  Share ── GitHub device flow ──► POST /repos/<you>/openvideo-recordings/releases ──► upload asset ──► https://<site>/v/gh/<you>/<id>
 ```
@@ -124,6 +152,7 @@ openVideo follows the same architecture as Loom Desktop ([teardown with evidence
 ```
 openVideo/
 ├── main.js, preload.js, renderer/   desktop app (Electron, vanilla JS)
+├── teleprompter.js, native/         teleprompter window + speech helpers (Swift on macOS, PowerShell on Windows)
 ├── share.js, lib.js                 GitHub sharing + validated helpers
 ├── web/                             website (Next.js 16, App Router)
 └── docs/EVIDENCE.md                 how Loom Desktop records, from its public build

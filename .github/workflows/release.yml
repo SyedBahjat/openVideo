@@ -38,6 +38,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - name: Build the teleprompter speech helper
+        if: runner.os == 'macOS'
+        run: sh native/build-mac.sh
       - name: Build and upload installers
         run: npx electron-builder ${{ matrix.target }} --publish always
         env:

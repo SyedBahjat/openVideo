@@ -7,20 +7,52 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="panel">
-  <header class="masthead">
-    <h1>open<em>Video</em></h1>
-    <span class="head-right"><button id="account" class="star-btn" hidden></button><button id="star" class="star-btn" title="Star openVideo on GitHub">★ Star</button><kbd id="shortcut">⌘ ⇧ L</kbd></span>
-  </header>
+<div class="app">
+  <nav class="side" aria-label="openVideo">
+    <div class="brand">
+      <h1>open<em>Video</em></h1>
+      <p class="tagline">Record your screen and face, read from a teleprompter only you can see, and share a link.</p>
+    </div>
 
-  <main>
-    <section aria-labelledby="setup-h" class="setup">
-      <h2 id="setup-h" class="eyebrow">New recording</h2>
+    <div class="tabs" role="tablist" aria-label="Sections" aria-orientation="vertical">
+      <button role="tab" id="tab-record" data-view="record" aria-controls="view-record" aria-selected="true">
+        <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5" class="fill"/></svg></span>
+        <span class="tab-text"><b>Record</b><small>Screen, camera, or both</small></span>
+      </button>
+      <button role="tab" id="tab-prompter" data-view="prompter" aria-controls="view-prompter" aria-selected="false">
+        <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/></svg></span>
+        <span class="tab-text"><b>Teleprompter</b><small id="tp-sum">Your script, hidden from the video</small></span>
+      </button>
+      <button role="tab" id="tab-library" data-view="library" aria-controls="view-library" aria-selected="false">
+        <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z" class="fill"/></svg></span>
+        <span class="tab-text"><b>Library</b><small id="lib-count">Your recordings</small></span>
+      </button>
+    </div>
 
-      <div class="modes" role="radiogroup" aria-label="Recording mode">
-        <button role="radio" data-mode="screen+cam" aria-checked="true">Screen + Cam</button>
-        <button role="radio" data-mode="screen" aria-checked="false">Screen</button>
-        <button role="radio" data-mode="cam" aria-checked="false">Cam only</button>
-      </div>
+    <div class="side-foot">
+      <button id="show-bar" class="side-btn">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="9" width="20" height="7" rx="3.5"/><circle cx="17.5" cy="12.5" r="1.5" class="fill"/></svg>
+        Show recording bar
+      </button>
+      <p class="side-line">Start / stop anywhere <kbd id="shortcut">⌘ ⇧ L</kbd></p>
+      <div class="side-row"><button id="account" class="star-btn" hidden></button><button id="star" class="star-btn" title="Star openVideo on GitHub">★ Star on GitHub</button></div>
+    </div>
+  </nav>
+
+  <main class="content">
+    <!-- ============ RECORD ============ -->
+    <section id="view-record" class="view setup" role="tabpanel" aria-labelledby="tab-record">
+      <header class="view-head">
+        <h2>New recording</h2>
+        <p>Pick what to record and hit <b>Start</b>. You get a 3-second countdown, and the recording saves to your computer as an MP4.</p>
+      </header>
+
+      <ul class="features" aria-label="What you can do while recording">
+        <li><b>Camera bubble</b><span>Drag your face anywhere on screen</span></li>
+        <li><b>Draw on screen</b><span id="feat-draw">Point things out with ⌘⇧D</span></li>
+        <li><b>Teleprompter</b><span>Read your script, hidden from the video</span></li>
+        <li><b>Share a link</b><span>Saved to your own GitHub, free</span></li>
+      </ul>
 
       <section id="perms" class="perms" hidden aria-labelledby="perms-h">
         <h2 id="perms-h">Let openVideo record</h2>
@@ -28,14 +60,40 @@
         <ol id="perm-list" class="perm-list"></ol>
       </section>
 
-      <div id="source-block">
-        <div class="row-head"><span class="eyebrow">Capture</span><button id="refresh" class="link">Refresh</button></div>
+      <div class="block">
+        <h3 class="eyebrow">1 · What to record</h3>
+        <div class="modes mode-cards" role="radiogroup" aria-label="Recording mode">
+          <button role="radio" data-mode="screen+cam" aria-checked="true">
+            <svg viewBox="0 0 48 32" aria-hidden="true"><rect x="2" y="2" width="44" height="28" rx="3"/><circle cx="12" cy="22" r="6" class="fill"/></svg>
+            <b>Screen + Camera</b><small>Your screen with your face in a bubble</small>
+          </button>
+          <button role="radio" data-mode="screen" aria-checked="false">
+            <svg viewBox="0 0 48 32" aria-hidden="true"><rect x="2" y="2" width="44" height="28" rx="3"/><path d="M10 10h20M10 16h28M10 22h14"/></svg>
+            <b>Screen</b><small>Just the screen or one window</small>
+          </button>
+          <button role="radio" data-mode="cam" aria-checked="false">
+            <svg viewBox="0 0 48 32" aria-hidden="true"><rect x="2" y="2" width="44" height="28" rx="3"/><circle cx="24" cy="13" r="5" class="fill"/><path d="M15 27c2-5 16-5 18 0"/></svg>
+            <b>Camera only</b><small>Talk straight to the camera</small>
+          </button>
+        </div>
+      </div>
+
+      <div id="source-block" class="block">
+        <div class="row-head"><h3 class="eyebrow">2 · Screen or window</h3><button id="refresh" class="link">Refresh</button></div>
         <div id="sources" class="sources" role="listbox" aria-label="Screens and windows"></div>
       </div>
 
-      <label class="field" id="cam-field">Camera<select id="cam"></select></label>
-      <label class="field">Microphone<select id="mic"></select></label>
-      <label class="check" id="sys-field"><input type="checkbox" id="sys"> Record system audio <small id="sys-note"></small></label>
+      <div class="block">
+        <h3 class="eyebrow">3 · Camera &amp; sound</h3>
+        <div class="devices">
+          <label class="field" id="cam-field">Camera<select id="cam"></select></label>
+          <label class="field">Microphone<select id="mic"></select></label>
+        </div>
+        <div class="toggles">
+          <label class="check" id="sys-field"><input type="checkbox" id="sys"> Record system audio <small id="sys-note"></small></label>
+          <label class="check"><input type="checkbox" id="tp-quick"> Show my teleprompter while recording <button id="tp-edit" class="link">Edit script</button></label>
+        </div>
+      </div>
 
       <p id="notice" class="notice" role="alert" hidden></p>
       <div id="star-nudge" class="nudge" hidden>
@@ -44,16 +102,77 @@
         <button id="nudge-close" class="link" aria-label="Dismiss">Not now</button>
       </div>
 
-      <button id="start" class="rec"><span class="dot" aria-hidden="true"></span>Start recording</button>
+      <div class="start-row">
+        <button id="start" class="rec big"><span class="dot" aria-hidden="true"></span>Start recording</button>
+        <p class="start-hint">While recording: pause, restart or stop from the floating bar. Press <kbd id="shortcut2">⌘ ⇧ L</kbd> to stop.</p>
+      </div>
     </section>
 
-    <section aria-labelledby="lib-h" class="library">
-      <div class="row-head"><h2 id="lib-h" class="eyebrow">Library</h2><span class="row"><button id="import" class="link">Add video</button><button id="open-dir" class="link">Open folder</button></span></div>
+    <!-- ============ TELEPROMPTER ============ -->
+    <section id="view-prompter" class="view prompter-setup" role="tabpanel" aria-labelledby="tab-prompter" hidden>
+      <header class="view-head">
+        <h2>Teleprompter</h2>
+        <p>Your script floats at the top of the screen, right under your camera, so you keep eye contact. <b>Only you can see it</b>: it never shows up in the recording or in screen sharing.</p>
+      </header>
+
+      <div class="tp-grid">
+        <div class="tp-col">
+          <div class="row-head"><label for="tp-script" class="eyebrow">Your script</label><span class="row"><button id="tp-import" class="link">Import .txt / .md</button><button id="tp-clear" class="link">Clear</button></span></div>
+          <textarea id="tp-script" class="tp-script" spellcheck="true" placeholder="# Intro&#10;Hi, I&rsquo;m Sam. Thanks for watching.&#10;&#10;[open the dashboard]&#10;Here&rsquo;s what I built this week&hellip;"></textarea>
+          <p class="tp-meta"><span id="tp-count"></span><span id="tp-saved" aria-live="polite"></span></p>
+          <details class="tp-format">
+            <summary>How to write your script</summary>
+            <ul>
+              <li>Write what you&rsquo;ll say. A blank line starts a new paragraph.</li>
+              <li><code># Intro</code> is a section title.</li>
+              <li><code>[open the dashboard]</code> is a note to yourself: shown small, never read or tracked. Works mid-sentence too.</li>
+              <li>Markdown files work as they are (<code>&gt;</code> quotes and <code>**bold**</code> are cleaned up).</li>
+            </ul>
+          </details>
+        </div>
+
+        <div class="tp-col tp-settings">
+          <h3 class="eyebrow">How it scrolls</h3>
+          <div class="modes tp-modes" role="radiogroup" aria-label="How the teleprompter scrolls">
+            <button role="radio" data-tp-mode="voice" aria-checked="false"><b>Follow my voice</b><small>Moves as you speak</small></button>
+            <button role="radio" data-tp-mode="auto" aria-checked="false"><b>Auto-scroll</b><small>Steady speed</small></button>
+            <button role="radio" data-tp-mode="manual" aria-checked="false"><b>Manual</b><small>You move it</small></button>
+          </div>
+          <p id="tp-mode-note" class="tp-mode-note"></p>
+
+          <div class="tp-sliders">
+            <label class="field" id="tp-wpm-field">Speed <output id="tp-wpm-out"></output><input type="range" id="tp-wpm" min="60" max="260" step="5"></label>
+            <label class="field">Text size <output id="tp-size-out"></output><input type="range" id="tp-size" min="18" max="96" step="2"></label>
+            <label class="field">Background <output id="tp-opacity-out"></output><input type="range" id="tp-opacity" min="30" max="100" step="5"></label>
+          </div>
+
+          <div class="tp-checks">
+            <div><label class="check"><input type="checkbox" id="tp-through"> Click-through</label><small>Clicks go to the app behind it, so it never gets in your way. Turn it off to move, resize, or click a word to jump there.</small></div>
+            <label class="check"><input type="checkbox" id="tp-auto"> Open it automatically when I start recording</label>
+            <label class="check"><input type="checkbox" id="tp-rewind"> Start from the top of the script each recording</label>
+          </div>
+
+          <div class="tp-actions"><button id="tp-open" class="rec tp-open">Open teleprompter</button><span id="tp-open-note" class="tp-mode-note"></span></div>
+
+          <h3 class="eyebrow">Shortcuts <small class="eyebrow-note">work from any app</small></h3>
+          <dl id="tp-keys" class="tp-keys" aria-label="Teleprompter shortcuts"></dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LIBRARY ============ -->
+    <section id="view-library" class="view library" role="tabpanel" aria-labelledby="tab-library" hidden>
+      <header class="view-head row-head">
+        <div><h2>Library</h2><p>Everything you record stays on this computer. Click <b>Share</b> to get a link.</p></div>
+        <span class="row"><button id="import" class="pill-btn ghost">Add video</button><button id="open-dir" class="pill-btn ghost">Open folder</button></span>
+      </header>
       <video id="player" controls hidden></video>
       <ul id="list" class="list"></ul>
-      <p id="empty" class="empty" hidden>Nothing yet. Your recordings stay on this computer.</p>
+      <p id="empty" class="empty" hidden>Nothing yet. Your recordings will show up here.</p>
     </section>
   </main>
+</div>
+
   <dialog id="connect" class="sheet" aria-labelledby="connect-h">
     <section data-step="intro">
       <h2 id="connect-h">Share with a link</h2>
@@ -76,5 +195,7 @@
     </section>
   </dialog>
   <script src="panel.js"></script>
+  <script src="prompter-core.js"></script>
+  <script src="prompter-setup.js"></script>
 </body>
 </html>
