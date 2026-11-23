@@ -2,7 +2,8 @@ import { cache } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { githubVideo, watchPath } from '@/lib/github';
+import { headers } from 'next/headers';
+import { githubVideo, mediaPath, watchPath } from '@/lib/github';
 import { readGithubToken } from '@/lib/session';
 import { isValidRepo, isValidVideoRef } from '@/lib/validate';
 import Watch from './Watch';
@@ -32,7 +33,11 @@ export default async function VideoPage({ owner, repo, tag }: Ref) {
       {video.private ? '🔒 private, stored on GitHub' : 'stored on GitHub'}
     </a>
   );
-  return <Watch title={video.title} by={owner} createdAt={video.createdAt} src={video.src} path={path} storage={storage} />;
+  // Safari and all iOS browsers (WebKit) won't play GitHub's octet-stream downloads; they go through /api/media.
+  const ua = (await headers()).get('user-agent') ?? '';
+  const webkitOnly = /AppleWebKit/.test(ua) && !/(Chrome|Chromium|Edg|OPR)\//.test(ua);
+  const src = webkitOnly ? mediaPath(owner, repo, tag) : video.src;
+  return <Watch title={video.title} by={owner} createdAt={video.createdAt} src={src} path={path} storage={storage} />;
 }
 
 function PrivateGate({ owner, repo, path, signedIn }: { owner: string; repo: string; path: string; signedIn: boolean }) {

@@ -28,7 +28,8 @@ export async function githubUser(token: string): Promise<User | null> {
 interface Release {
   tag_name: string;
   name: string | null;
-  created_at: string;
+  created_at: string; // the tagged commit's date: for openVideo repos that's when the repo was created
+  published_at: string | null; // when the video was shared
   html_url: string;
   assets: { name: string; size: number; url: string; browser_download_url: string }[];
 }
@@ -55,7 +56,7 @@ function toVideo(rel: Release, owner: string, repo: string, isPrivate: boolean):
   if (!asset) return null;
   return { repo, private: isPrivate, tag: rel.tag_name, title: rel.name || 'openVideo recording',
     src: isPrivate ? mediaPath(owner, repo, rel.tag_name) : asset.browser_download_url,
-    createdAt: rel.created_at, size: asset.size, manageUrl: rel.html_url };
+    createdAt: rel.published_at ?? rel.created_at, size: asset.size, manageUrl: rel.html_url };
 }
 
 async function release(owner: string, repo: string, tag: string, token?: string): Promise<Release | null> {
@@ -79,7 +80,24 @@ export async function githubVideo(owner: string, tag: string, repo: string = GH_
   return priv ? toVideo(priv, owner, repo, true) : null;
 }
 
-/** GitHub redirects an authorised asset download to a signed URL that expires after a few minutes. */
+/**
+ * Where to fetch a video's bytes from: the public download URL, or for a private video the viewer's signed URL.
+ * `type` comes from the file name, because GitHub labels every release asset application/octet-stream.
+ */
+export async function videoSource(owner: string, repo: string, tag: string, token?: string): Promise<{ url: string; type: string } | null> {
+  if (!isValidVideoRef(owner, tag) || !isValidRepo(repo)) return null;
+  const pub = await release(owner, repo, tag);
+  const asset = pub && videoAsset(pub);
+  const type = (name: string) => (/\.webm$/i.test(name) ? 'video/webm' : 'video/mp4');
+  if (asset) return { url: asset.browser_download_url, type: type(asset.name) };
+  if (!token) return null;
+  const priv = await release(owner, repo, tag, token);
+  const pa = priv && videoAsset(priv);
+  const signed = pa && (await signedVideoUrl(owner, repo, tag, token));
+  return pa && signed ? { url: signed, type: type(pa.name) } : null;
+}
+
+/** GitHub redirects an authorised asset download to a signed URL that expires after about an hour. */
 export async function signedVideoUrl(owner: string, repo: string, tag: string, token: string): Promise<string | null> {
   if (!isValidVideoRef(owner, tag) || !isValidRepo(repo)) return null;
   const rel = await release(owner, repo, tag, token);
