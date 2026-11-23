@@ -13,7 +13,14 @@ let sourceId = null;
 let session = null; // active recording
 let shareCfg = { shares: {} };
 
-const notice = (msg) => { $('#notice').hidden = !msg; $('#notice').textContent = msg || ''; };
+// Shown above whichever section is open (a message on a hidden page looks like "nothing happened").
+let noticeTimer = null;
+const notice = (msg) => {
+  $('#notice').hidden = !msg;
+  $('#notice').textContent = msg || '';
+  clearTimeout(noticeTimer);
+  if (msg) noticeTimer = setTimeout(() => { $('#notice').hidden = true; }, 12_000);
+};
 // IPC errors arrive as "Error invoking remote method 'x': Error: msg"; show just msg.
 const errMsg = (e) => (e instanceof Error ? e.message : String(e)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 const stopTracks = (streams) => streams.forEach((s) => s.getTracks().forEach((t) => t.stop()));
@@ -96,8 +103,11 @@ function setMode(next) {
   renderPerms();
 }
 
+// The camera bubble is a preview: only while you're on the Record page (main also drops it when this window is
+// hidden or minimised). During a recording main keeps it regardless.
 function syncCamera() {
-  ov.camera(mode !== 'screen' && perms.camera === 'granted' && $('#cam').value ? $('#cam').value : null);
+  const onRecord = !$('#view-record').hidden;
+  ov.camera(onRecord && mode !== 'screen' && perms.camera === 'granted' && $('#cam').value ? $('#cam').value : null);
 }
 
 // ---------- recording
@@ -133,6 +143,7 @@ async function start() {
     const { track: audio, ctx } = mixAudio(streams.flatMap((s) => s.getAudioTracks()));
     const { mime, ext } = pickMime();
 
+    await ov.camera(mode !== 'screen' && $('#cam').value ? $('#cam').value : null); // bubble for the recording
     await ov.countdown();
     await ov.recStart(ext, mode !== 'cam');
     fileOpen = true;
@@ -287,6 +298,13 @@ async function upload(it, b, dest) {
     b.disabled = false;
     b.textContent = 'Share';
     if (msg === 'NEED_PRIVATE') { pendingShare = () => upload(it, b, dest); showStep('private'); return; }
+    if (msg === 'RECONNECT') {
+      await refreshShare();
+      pendingShare = () => upload(it, b, dest);
+      $('#connect-expired').hidden = false;
+      showStep('intro');
+      return;
+    }
     notice(`Share failed: ${msg}`);
   }
 }
@@ -326,11 +344,11 @@ async function openDest(it, b) {
   $('#dest-video').textContent = it.name.replace(/^openVideo /, '').replace(/\.\w+$/, '');
   $('#dest-go').disabled = true;
   showStep('dest');
-  try { repos = await ov.shareRepos(); } catch { repos = []; }
+  try { repos = await ov.shareRepos(); } catch { repos = []; } // offline or expired: Share will say so
   const others = repos.filter((r) => r.name !== shareCfg.repo);
   $('#dest-existing').replaceChildren(...others.map((r) => new Option(`${r.private ? '🔒 ' : ''}${r.name}`, r.name)));
   $('#dest-existing-opt').hidden = others.length === 0;
-  $('#dest-new').value = await ov.shareNewName(it.name);
+  $('#dest-new').value = await ov.shareNewName(it.name).catch(() => 'openvideo-video');
   const last = shareCfg.dest || { kind: 'main' };
   const kind = last.kind === 'existing' && others.some((r) => r.name === last.repo) ? 'existing' : (last.kind === 'new' ? 'new' : 'main');
   if (kind === 'existing') $('#dest-existing').value = last.repo;
@@ -397,6 +415,7 @@ async function connectGitHub(opts = {}) {
     shareCfg = await ov.shareLogin(opts);
     const next = pendingShare; // read before close(): the close handler clears it
     pendingShare = null;
+    $('#connect-expired').hidden = true;
     $('#connect').close();
     notice(opts.wantPrivate ? 'Private repos allowed.' : `Connected to GitHub as @${shareCfg.login}.`);
     refreshStar();
@@ -421,7 +440,7 @@ $('#account').addEventListener('click', () => {
 $('#acct-repo').addEventListener('click', (e) => { e.preventDefault(); ov.openUrl(`https://github.com/${shareCfg.login}/${shareCfg.repo}`); });
 $('#disconnect').addEventListener('click', async () => { shareCfg = await ov.shareLogout(); $('#connect').close(); renderShare(); refreshStar(); });
 document.querySelectorAll('#connect [data-close]').forEach((b) => b.addEventListener('click', () => $('#connect').close()));
-$('#connect').addEventListener('close', () => { pendingShare = null; ov.shareCancelLogin(); });
+$('#connect').addEventListener('close', () => { pendingShare = null; $('#connect-expired').hidden = true; ov.shareCancelLogin(); });
 ov.onShareCode(({ userCode, url }) => {
   deviceUrl = url;
   $('#device-code').textContent = userCode;
@@ -616,6 +635,7 @@ setInterval(() => { if (!$('#perms').hidden) refreshPerms(); }, 1500);
 function showView(name) {
   document.querySelectorAll('[role="tab"]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.view === name)));
   document.querySelectorAll('.view').forEach((v) => { v.hidden = v.id !== `view-${name}`; });
+  syncCamera();
 }
 
 // ---------- recording bar (floating pill). The panel owns the choices; the bar mirrors them and sends actions.

@@ -40,6 +40,7 @@
   </nav>
 
   <main class="content">
+    <p id="notice" class="notice toast" role="alert" hidden></p>
     <!-- ============ RECORD ============ -->
     <section id="view-record" class="view setup" role="tabpanel" aria-labelledby="tab-record">
       <header class="view-head">
@@ -93,9 +94,14 @@
           <label class="check" id="sys-field"><input type="checkbox" id="sys"> Record system audio <small id="sys-note"></small></label>
           <label class="check"><input type="checkbox" id="tp-quick"> Show my teleprompter while recording <button id="tp-edit" class="link">Edit script</button></label>
         </div>
+        <details class="in-video" id="in-video">
+          <summary>Recording a tutorial about openVideo itself?</summary>
+          <p class="note">openVideo&rsquo;s own windows are hidden from recordings, so your setup and script stay private. Switch them on to show them on camera. You can flip these during a recording too.</p>
+          <label class="check"><input type="checkbox" id="app-in-video"> Show this openVideo window in the recording</label>
+          <label class="check"><input type="checkbox" id="tp-in-video"> Show the teleprompter in the recording</label>
+        </details>
       </div>
 
-      <p id="notice" class="notice" role="alert" hidden></p>
       <div id="star-nudge" class="nudge" hidden>
         <span>Enjoying openVideo? A star on GitHub helps other people find it.</span>
         <button id="nudge-star" class="pill-btn">★ Star</button>
@@ -177,6 +183,7 @@
   <dialog id="connect" class="sheet" aria-labelledby="connect-h">
     <section data-step="intro">
       <h2 id="connect-h">Share with a link</h2>
+      <p id="connect-expired" class="notice" hidden>Your GitHub connection expired or was removed on GitHub. Connect again and your share carries on.</p>
       <p>openVideo saves shared videos to <b>your own GitHub account</b>. No openVideo server ever holds your videos, it&rsquo;s free, and they stay yours.</p>
       <p class="note">For each video you choose the repo and whether it&rsquo;s <b>public</b> (anyone with the link can watch) or <b>private</b> (only people with access to the repo on GitHub can watch).</p>
       <div class="row end"><button class="link" data-close>Not now</button><button id="connect-go" class="rec small" autofocus>Connect GitHub</button></div>

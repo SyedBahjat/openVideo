@@ -136,7 +136,7 @@ async function ensureRepo(token, owner, repo, wantPrivate) {
     }
     return { private: Boolean(r.private) };
   }
-  if (res.status !== 404) throw new Error(`GitHub API ${res.status} while checking ${owner}/${repo}`);
+  if (res.status !== 404) throw Object.assign(new Error(`GitHub API ${res.status} while checking ${owner}/${repo}`), { status: res.status });
   // auto_init: releases need at least one commit to tag.
   const created = await ghJson('/user/repos', token, { method: 'POST', body: JSON.stringify({
     name: repo, private: Boolean(wantPrivate), auto_init: true, has_issues: false, has_wiki: false, has_projects: false,
@@ -191,7 +191,11 @@ async function toGithub(cfg, token, blob, type, title, repo, wantPrivate) {
 
 // Turn GitHub API failures into something a non-developer can act on.
 function explain(err) {
-  if (err.status === 401) return new Error('Your GitHub connection expired or was revoked. Disconnect, then Connect GitHub again.');
+  if (err.status === 401) { // token expired or revoked: forget it so the next step is a clean reconnect
+    cachedToken = null;
+    fs.rmSync(tokenPath(), { force: true });
+    return new Error('RECONNECT');
+  }
   if (err.status === 403 || err.status === 404) {
     return new Error('GitHub refused: openVideo is missing permission to create your repo or upload to it. Disconnect, then Connect GitHub again and click Authorize.');
   }

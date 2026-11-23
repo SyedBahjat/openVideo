@@ -44,18 +44,32 @@ function floatAbove(w, relativeLevel = 1) {
 
 function createPanel() {
   panel = makeWindow('panel.html', { width: 1080, height: 780, minWidth: 880, minHeight: 620, title: 'openVideo' });
-  panel.setContentProtection(true); // keep the setup UI out of recordings
+  panel.setContentProtection(true); // keep the setup UI out of recordings (switchable for tutorials, see below)
   panel.once('ready-to-show', () => {
     panel.show();
     if (IS_MAC) app.focus({ steal: true }); // first launch from Finder/installer: put the panel in front
   });
   panel.on('closed', () => app.quit());
+  for (const ev of ['show', 'hide', 'minimize', 'restore']) panel.on(ev, () => setImmediate(updateCamera));
 }
 
 // --- Camera bubble: a transparent, draggable, always-on-top circle that IS captured in the screen recording.
+// It only exists while it's useful: the panel is open on Record (preview), or a recording is starting or running.
+let camDevice = null;  // camera picked in the panel (null = no bubble wanted)
+let camShown = null;   // device the current bubble window is showing
+let camHold = false;   // countdown + recording: keep the bubble even though the panel is hidden
+
+function updateCamera() {
+  const panelOpen = panel && !panel.isDestroyed() && panel.isVisible() && !panel.isMinimized();
+  const want = camDevice && (camHold || panelOpen) ? camDevice : null;
+  if (want === camShown && (!want || (camera && !camera.isDestroyed()))) return;
+  showCamera(want);
+}
+
 function showCamera(deviceId) {
   if (camera && !camera.isDestroyed()) camera.destroy();
   camera = null;
+  camShown = deviceId;
   if (!deviceId) return;
   const { workArea } = screen.getPrimaryDisplay();
   const size = 220;
@@ -111,6 +125,7 @@ function hideDrawing() {
 }
 
 function backToPanel() {
+  camHold = false;
   hideDrawing();
   hideControls();
   showLauncher();
@@ -127,6 +142,13 @@ function closeRecording() {
 // --- Recording bar: a floating pill (like Loom/Recordly) to pick a source, toggle camera/mic/system audio/
 // teleprompter and hit Record without opening the main window. Hidden from the recording; the panel owns the state.
 const BAR = { width: 640, height: 64 };
+
+// Bring the main window to the front, even when another app is active (macOS won't by default).
+function focusPanel() {
+  panel.show();
+  if (IS_MAC) app.focus({ steal: true });
+  panel.focus();
+}
 
 function showLauncher() {
   if (launcher && !launcher.isDestroyed()) { launcher.showInactive(); return; }
@@ -171,12 +193,12 @@ ipcMain.on('bar:state', (_e, s) => { barState = s && typeof s === 'object' ? s :
 ipcMain.handle('bar:get', barSnapshot);
 ipcMain.on('bar:do', (_e, action) => {
   if (action === 'source') sourceMenu().catch((err) => console.warn('openVideo: source menu', err));
-  else if (action === 'panel') { panel.show(); panel.focus(); }
+  else if (action === 'panel') focusPanel();
   else if (action === 'hide') hideLauncher();
   else if (action === 'show') showLauncher();
   else if (action === 'teleprompter') prompter.toggle();
   else if (['camera', 'mic', 'sys', 'record'].includes(action)) {
-    if (action === 'record' && barState.needsPerms) { panel.show(); panel.focus(); }
+    if (action === 'record' && barState.needsPerms) focusPanel();
     panel.webContents.send('bar', { action });
   }
 });
@@ -194,7 +216,11 @@ ipcMain.handle('select-source', (_e, id, audio) => {
   selected = { id: String(id), audio: Boolean(audio), displayId: displayBySource.get(String(id)) || '' };
 });
 
-ipcMain.handle('camera', (_e, deviceId) => showCamera(typeof deviceId === 'string' ? deviceId : null));
+ipcMain.handle('camera', (_e, deviceId) => {
+  if (rec || camHold) return; // the panel can't swap the camera mid-recording
+  camDevice = typeof deviceId === 'string' ? deviceId : null;
+  updateCamera();
+});
 
 // --- Permissions. macOS: screen / camera / microphone via TCC. Windows: camera / microphone privacy switches.
 const PERM_KINDS = ['screen', 'camera', 'microphone'];
@@ -230,6 +256,12 @@ ipcMain.handle('permissions:request', async (_e, kind) => {
   return permissionStatus();
 });
 
+// "Show openVideo in the recording": for tutorials about openVideo itself. Works mid-recording.
+ipcMain.handle('app:show-in-recording', (_e, on) => {
+  panel.setContentProtection(!on);
+  return Boolean(on);
+});
+
 // macOS only applies a new Screen Recording permission after the app restarts.
 ipcMain.handle('app:relaunch', () => { app.relaunch(); app.exit(0); });
 
@@ -243,6 +275,8 @@ ipcMain.handle('countdown', () => new Promise((resolve) => {
   w.setContentProtection(true);
   floatAbove(w);
   w.once('ready-to-show', () => w.showInactive());
+  camHold = true; // keep the bubble through the countdown and the recording
+  updateCamera();
   panel.hide();
   hideLauncher();
   setTimeout(() => { if (!w.isDestroyed()) w.destroy(); resolve(); }, COUNTDOWN_MS);
@@ -312,7 +346,10 @@ ipcMain.handle('share:login', (_e, opts) => sharing.login((code) => {
   panel?.webContents.send('share-code', code);
 }, { wantPrivate: Boolean(opts?.wantPrivate) }));
 ipcMain.handle('share:repos', () => sharing.listRepos());
-ipcMain.handle('share:new-name', async (_e, name) => sharing.newRepoName(new Date((await fs.promises.stat(resolveInside(DIR, name))).mtimeMs)));
+ipcMain.handle('share:new-name', async (_e, name) => {
+  const st = await fs.promises.stat(resolveInside(DIR, name)).catch(() => null); // file may have been moved meanwhile
+  return sharing.newRepoName(st ? new Date(st.mtimeMs) : new Date());
+});
 ipcMain.handle('share:cancel-login', () => sharing.cancelLogin());
 ipcMain.handle('share:logout', () => sharing.logout());
 ipcMain.handle('star:status', () => sharing.starStatus());
@@ -366,7 +403,7 @@ app.whenReady().then(() => {
     { role: 'fileMenu' },
     { role: 'editMenu' },
     { label: 'View', submenu: [
-      { label: 'Show openVideo window', accelerator: 'CommandOrControl+1', click: () => { panel.show(); panel.focus(); } },
+      { label: 'Show openVideo window', accelerator: 'CommandOrControl+1', click: focusPanel },
       { label: 'Show recording bar', accelerator: 'CommandOrControl+Shift+B', click: showLauncher },
       { label: 'Show / hide teleprompter', accelerator: 'Control+Alt+T', registerAccelerator: false, click: () => prompter.toggle() },
     ] },
