@@ -186,6 +186,9 @@ async function toGithub(cfg, token, blob, type, title, repo, wantPrivate) {
     throw new Error(`GitHub upload failed (HTTP ${up.status})`);
   }
   // The main repo keeps the original short link format; other repos carry their name in the link.
+  // Private videos link straight to the release on GitHub: GitHub itself decides who can see it (people with access to
+  // the repo), and nothing passes through openVideo's website. Public videos get the openVideo player.
+  if (isPrivate) return { isPrivate, url: release.html_url };
   return { isPrivate, url: new URL(repo === GH_REPO ? `/v/gh/${owner}/${tag}` : `/v/gh/${owner}/${repo}/${tag}`, SITE_URL).href };
 }
 

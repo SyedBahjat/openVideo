@@ -107,7 +107,7 @@ Open **Teleprompter** in the app, write or import your script (`.txt` / `.md`), 
 2. Click **Share** on any recording and pick where it goes: your main `openvideo-recordings` repo, another openVideo repo, or **a new repo just for this video** (the name is filled in for you). When a repo is created you choose **Public** or **Private**. The video is uploaded as a release asset (up to 2 GB per file), and the link is copied to your clipboard.
 
 > [!IMPORTANT]
-> **Public** repos: anyone with the link can watch, and storage is free. **Private** repos: only people with access to the repo on GitHub can watch. They sign in with GitHub on the watch page (add teammates under the repo's Settings → Collaborators). Delete a video by deleting its release on GitHub.
+> **Public** repos: anyone with the link can watch, and storage is free. **Private** repos: only people with access to the repo on GitHub can watch. The share link opens the video's release page on GitHub, so GitHub itself checks access (add teammates under the repo's Settings → Collaborators). Viewers click `video.mp4` there to play or download it. Delete a video by deleting its release on GitHub.
 
 The GitHub token is stored encrypted with the OS keychain (Keychain on macOS, DPAPI on Windows), and the app asks for the `public_repo` scope, plus `repo` only the first time you pick **Private** (GitHub has no narrower permission for private repos). On macOS you may be asked to let openVideo use **"openVideo Safe Storage"** the first time you share after installing or updating. Click **Always Allow**. (Builds aren't Developer ID-signed yet, so macOS asks again after each update.)
 
@@ -148,7 +148,7 @@ openVideo follows the same architecture as Loom Desktop ([teardown with evidence
    └─ teleprompter     content-protected, click-through → hidden from the video
 
  Share ── GitHub device flow ──► POST /repos/<you>/<repo>/releases ──► upload asset ──► https://<site>/v/gh/<you>/[<repo>/]<id>
- Private ── viewer signs in with GitHub ──► /api/media checks their access ──► 302 to GitHub's short-lived signed URL
+ Private ── link is the GitHub release page ──► GitHub checks the viewer has access to the repo
 ```
 
 ```

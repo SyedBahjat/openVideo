@@ -289,7 +289,7 @@ async function upload(it, b, dest) {
   b.textContent = 'Uploading…';
   try {
     const link = await ov.shareUpload(it.name, dest);
-    notice(`Link copied: ${link}${dest.private ? ' (private: viewers sign in with GitHub)' : ''}`);
+    notice(`Link copied: ${link}${dest.private ? ' (private: it opens on GitHub, for people with access to the repo)' : ''}`);
     maybeNudgeStar();
     await refreshShare();
     await loadLibrary();
@@ -330,10 +330,10 @@ function renderDest() {
   $('#dest-vis-block').hidden = Boolean(fixed);
   $('#dest-vis-note').textContent = fixed
     ? (fixed.private
-      ? `🔒 ${fixed.name} is private: only people you've given access to it on GitHub can watch. They sign in with GitHub.`
+      ? `🔒 ${fixed.name} is private: the link opens the video on GitHub, and only people you've given access to the repo can see it.`
       : `${fixed.name} is public: anyone with the link can watch.`)
     : (vis === 'private'
-      ? 'Viewers sign in with GitHub, and only people with access to this repo can watch. Add teammates in the repo\'s Settings → Collaborators on GitHub.'
+      ? 'The link opens the video on GitHub. Only people with access to this repo can see it: add them in the repo\'s Settings → Collaborators on GitHub.'
       : 'Anyone with the link can watch. Don\'t share anything private.');
   $('#dest-main-note').textContent = `github.com/${shareCfg.login}/${shareCfg.repo}${main ? (main.private ? ' · private' : ' · public') : ' · created on first share'}`;
   $('#dest-error').hidden = true;
