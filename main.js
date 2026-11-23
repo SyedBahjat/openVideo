@@ -143,8 +143,10 @@ function hideLauncher() {
   if (launcher && !launcher.isDestroyed()) launcher.hide();
 }
 
+const barSnapshot = () => ({ ...barState, tp: prompter.isOpen(), tpVisible: prompter.isVisible(), platform: process.platform });
+
 function sendBar() {
-  launcher?.webContents.send('bar:state', { ...barState, tp: prompter.isOpen(), platform: process.platform });
+  launcher?.webContents.send('bar:state', barSnapshot());
 }
 
 async function sourceMenu() {
@@ -166,7 +168,7 @@ async function sourceMenu() {
 }
 
 ipcMain.on('bar:state', (_e, s) => { barState = s && typeof s === 'object' ? s : {}; sendBar(); });
-ipcMain.handle('bar:get', () => ({ ...barState, tp: prompter.isOpen(), platform: process.platform }));
+ipcMain.handle('bar:get', barSnapshot);
 ipcMain.on('bar:do', (_e, action) => {
   if (action === 'source') sourceMenu().catch((err) => console.warn('openVideo: source menu', err));
   else if (action === 'panel') { panel.show(); panel.focus(); }
@@ -356,9 +358,22 @@ app.whenReady().then(() => {
   prompter = setupTeleprompter({ makeWindow, floatAbove, getPanel: () => panel, onState: sendBar });
   createPanel();
   showLauncher();
+  // Everything that can be hidden can be brought back from here (or by clicking the Dock icon).
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    ...(IS_MAC ? [{ role: 'appMenu' }] : []),
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { label: 'View', submenu: [
+      { label: 'Show openVideo window', accelerator: 'CommandOrControl+1', click: () => { panel.show(); panel.focus(); } },
+      { label: 'Show recording bar', accelerator: 'CommandOrControl+Shift+B', click: showLauncher },
+      { label: 'Show / hide teleprompter', accelerator: 'Control+Alt+T', registerAccelerator: false, click: () => prompter.toggle() },
+    ] },
+    { role: 'windowMenu' },
+  ]));
   if (!globalShortcut.register(SHORTCUT, () => panel?.webContents.send('control', 'toggle'))) {
     console.warn(`openVideo: shortcut ${SHORTCUT} is taken by another app`);
   }
 });
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
+app.on('activate', () => { panel?.show(); showLauncher(); }); // Dock icon click

@@ -3,7 +3,16 @@
 // voice moves it when what you say matches the script, auto-scroll moves it on a timer, manual only via keys/clicks.
 const core = PrompterCore;
 const $ = (id) => document.getElementById(id);
-const MOD = ov.platform === 'darwin' ? '⌃⌥' : 'Ctrl+Alt+';
+const keysText = (k) => core.shortcutKeys(k, ov.platform).join(' + ');
+// Key chips: [⌃ Control] + [⌥ Option] + [L]
+function keycaps(k) {
+  const frag = document.createDocumentFragment();
+  core.shortcutKeys(k, ov.platform).forEach((key, i) => {
+    if (i) frag.append('+');
+    frag.append(el('kbd', '', key));
+  });
+  return frag;
+}
 const MODE_LABEL = { voice: 'Voice', auto: 'Auto', manual: 'Manual' };
 const NUDGE = 8; // words per ↑/↓
 
@@ -16,6 +25,7 @@ let running = false;
 let timer = null;
 let recState = 'stopped';
 let speech = { state: '', message: '' };
+let shown = { showInRecording: false };
 
 // ---------- rendering
 function el(tag, cls, text) {
@@ -102,11 +112,22 @@ function status() {
   if (wordEls.length) text += ` · ${pos + 1}/${wordEls.length}`;
   $('status').textContent = text;
   $('dot').classList.toggle('live', live);
-  $('b-run').textContent = running ? '❚❚' : '▶';
-  $('b-run').setAttribute('aria-label', running ? 'Pause' : 'Start');
-  $('b-run').title = `${running ? 'Pause' : 'Start'} (${MOD}Space)`;
+  label('b-run', running ? '❚❚' : '▶', running ? 'Pause' : 'Start');
   $('b-run').disabled = mode === 'manual';
   hint();
+}
+
+function label(id, ico, text) {
+  const b = $(id);
+  b.querySelector('.ico').textContent = ico;
+  b.querySelector('.lbl').textContent = text;
+  b.title = b.dataset.key ? `${text}  (${keysText(b.dataset.key)})` : text;
+}
+
+function hintItem(key, text) {
+  const s = el('span', 'tp-hint-item');
+  s.append(keycaps(key), ` ${text}`);
+  return s;
 }
 
 function hint() {
@@ -119,13 +140,15 @@ function hint() {
       const b = el('button', 'tp-link', 'Open Settings');
       b.addEventListener('click', () => ov.tp.speechSettings());
       h.append(' ', b);
-      if (settings.clickThrough) h.append(` (${MOD}L to unlock)`);
+      if (settings.clickThrough) h.append(' ', hintItem('L', 'to unlock first'));
     }
     return;
   }
-  h.textContent = settings.clickThrough
-    ? `Click-through on · ${MOD}L unlock · ${MOD}Space ${running ? 'pause' : 'start'} · ${MOD}↑↓ nudge · ${MOD}0 restart · ${MOD}T hide`
-    : `Unlocked: drag the top bar to move, edges to resize, click a word to jump · ${MOD}L lock`;
+  if (settings.clickThrough) {
+    h.append(hintItem('L', 'unlock'), hintItem('Space', running ? 'pause' : 'start'), hintItem('↑ ↓', 'nudge'), hintItem('T', 'hide'), hintItem('V', 'show in video'));
+  } else {
+    h.append('Unlocked: drag the top bar to move, drag edges to resize, click a word to jump. ', hintItem('L', 'lock'));
+  }
 }
 
 // ---------- settings from openVideo
@@ -136,11 +159,10 @@ function applySettings(next) {
   root.setProperty('--tp-size', `${settings.fontSize}px`);
   root.setProperty('--tp-alpha', String(settings.opacity / 100));
   document.body.classList.toggle('locked', settings.clickThrough);
-  $('b-mode').textContent = MODE_LABEL[settings.mode];
+  label('b-mode', { voice: '◎', auto: '⇣', manual: '✋' }[settings.mode], MODE_LABEL[settings.mode]);
   $('speed').hidden = settings.mode !== 'auto';
   $('wpm').textContent = `${settings.wpm} wpm`;
-  $('b-lock').textContent = settings.clickThrough ? 'Unlock' : 'Lock';
-  $('b-lock').title = `${settings.clickThrough ? 'Let me click it' : 'Click-through: clicks go to the app behind'} (${MOD}L)`;
+  label('b-lock', settings.clickThrough ? '🔒' : '🔓', settings.clickThrough ? 'Unlock' : 'Lock');
   if (settings.script !== script) { script = settings.script; render(); }
   else if (prev.fontSize !== settings.fontSize) requestAnimationFrame(() => scrollToPos(false));
   if (prev.mode !== settings.mode) {
@@ -163,7 +185,16 @@ const actions = {
 };
 
 // ---------- events
+function applyShown(s) {
+  shown = s;
+  const on = Boolean(s.showInRecording);
+  document.body.classList.toggle('in-video', on);
+  label('b-capture', on ? '●' : '◌', on ? 'Showing in video' : 'Hidden from video');
+  $('b-capture').setAttribute('aria-pressed', String(on));
+}
+
 ov.tp.onSettings(applySettings);
+ov.tp.onState(applyShown);
 ov.tp.onKey((a) => actions[a]?.());
 ov.tp.onSpeech((msg) => {
   if (msg.type === 'heard') {
@@ -192,6 +223,12 @@ $('b-smaller').addEventListener('click', actions.smaller);
 $('b-bigger').addEventListener('click', actions.bigger);
 $('b-lock').addEventListener('click', () => set({ clickThrough: !settings.clickThrough }));
 $('b-close').addEventListener('click', () => ov.tp.close());
+$('b-hide').addEventListener('click', () => ov.tp.show(false));
+$('b-capture').addEventListener('click', () => ov.tp.showInRecording(!shown.showInRecording));
+label('b-restart', '↺', 'Restart');
+label('b-hide', '⌄', 'Hide');
+$('b-smaller').title = `Smaller text  (${keysText('−')})`;
+$('b-bigger').title = `Bigger text  (${keysText('=')})`;
 $('text').addEventListener('click', (e) => {
   const i = e.target.closest?.('.w')?.dataset.i;
   if (i !== undefined) setPos(Number(i));
@@ -206,6 +243,7 @@ addEventListener('resize', () => scrollToPos(false));
 (async () => {
   const { settings: s, state } = await ov.tp.get();
   applySettings(s);
+  applyShown(state);
   if (state.rec === 'recording' || state.rec === 'paused') {
     if (settings.rewindOnRecord) setPos(0);
     recState = state.rec;

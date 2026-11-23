@@ -16,7 +16,8 @@ function render(s) {
   toggle('camera', s.mode !== 'screen', s.cameraName ? `Camera: ${s.cameraName}` : 'No camera found', !s.hasCamera && s.mode === 'screen');
   toggle('mic', Boolean(s.mic), s.micName ? `Microphone: ${s.micName}` : 'Microphone off', !s.hasMic);
   toggle('sys', s.sys && !camOnly, 'Record the sound your computer plays', camOnly);
-  toggle('tp', s.tp, s.tp ? 'Hide the teleprompter' : 'Show your script (only you can see it)');
+  const tpHidden = s.tp && s.tpVisible === false;
+  toggle('tp', s.tp && !tpHidden, tpHidden ? 'The teleprompter is hidden. Click to show it again' : s.tp ? 'Close the teleprompter' : 'Show your script (only you can see it)');
   $('record-label').textContent = s.needsPerms ? 'Set up' : 'Record';
   $('record').title = s.needsPerms ? 'openVideo needs your permission first. Opens the setup steps.' : `Start recording (${MOD})`;
 }

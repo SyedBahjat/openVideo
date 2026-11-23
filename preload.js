@@ -53,6 +53,8 @@ contextBridge.exposeInMainWorld('ov', {
     set: call('tp:set'),
     open: call('tp:open'),
     close: call('tp:close'),
+    show: call('tp:show'),
+    showInRecording: call('tp:capture'),
     importScript: call('tp:import'),
     speechSettings: call('tp:speech-settings'),
     listen: (on) => ipcRenderer.send('tp:listen', Boolean(on)),

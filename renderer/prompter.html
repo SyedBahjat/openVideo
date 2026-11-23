@@ -11,16 +11,19 @@
     <header class="tp-bar">
       <span class="tp-status"><span id="dot" class="tp-dot" aria-hidden="true"></span><span id="status" aria-live="polite">Paused</span></span>
       <span class="tp-tools" role="toolbar" aria-label="Teleprompter">
-        <button id="b-run" aria-label="Start">▶</button>
-        <button id="b-restart" aria-label="Back to the start">⟲</button>
-        <button id="b-mode" title="How it scrolls">Voice</button>
+        <button id="b-run" data-key="Space"><span class="ico" aria-hidden="true">▶</span><span class="lbl">Start</span></button>
+        <button id="b-restart" data-key="0"><span class="ico" aria-hidden="true">↺</span><span class="lbl">Restart</span></button>
+        <button id="b-mode" title="How it scrolls (click to change)"><span class="ico" aria-hidden="true">◎</span><span class="lbl">Voice</span></button>
         <span id="speed" class="tp-speed" hidden>
           <button id="b-slower" aria-label="Slower">−</button><output id="wpm"></output><button id="b-faster" aria-label="Faster">+</button>
         </span>
-        <button id="b-smaller" title="Smaller text">A−</button>
-        <button id="b-bigger" title="Bigger text">A+</button>
-        <button id="b-lock">Lock</button>
-        <button id="b-close" aria-label="Close teleprompter" title="Close">✕</button>
+        <button id="b-smaller" data-key="−" aria-label="Smaller text">A−</button>
+        <button id="b-bigger" data-key="=" aria-label="Bigger text">A+</button>
+        <span class="tp-div" aria-hidden="true"></span>
+        <button id="b-capture" data-key="V" class="tp-capture"><span class="ico" aria-hidden="true">◌</span><span class="lbl">Hidden from video</span></button>
+        <button id="b-lock" data-key="L"><span class="ico" aria-hidden="true">🔒</span><span class="lbl">Unlock</span></button>
+        <button id="b-hide" data-key="T"><span class="ico" aria-hidden="true">⌄</span><span class="lbl">Hide</span></button>
+        <button id="b-close" aria-label="Close teleprompter" title="Close"><span class="ico" aria-hidden="true">✕</span></button>
       </span>
     </header>
     <div class="tp-stage">

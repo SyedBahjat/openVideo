@@ -5,17 +5,17 @@
   const core = PrompterCore;
   const q = (s) => document.querySelector(s);
   const IS_MAC = ov.platform === 'darwin';
-  const MOD = IS_MAC ? '⌃⌥' : 'Ctrl+Alt+';
+  const keysText = (k) => core.shortcutKeys(k, ov.platform).join(' + ');
   const MODE_NOTE = {
     voice: IS_MAC
       ? 'Moves along as you speak, using on-device speech recognition (nothing leaves your Mac). macOS asks for Speech Recognition access the first time.'
       : 'Beta: moves along as you speak, using Windows speech recognition (Settings → Time & language → Speech). If it can\'t start, use Auto-scroll.',
     auto: 'Scrolls at a steady speed. Starts when recording starts and pauses when you pause.',
-    manual: `Doesn't move by itself. Use ${MOD}↑ / ${MOD}↓, or unlock it and click the word you're on.`,
+    manual: `Doesn't move by itself. Use ${keysText('↑')} / ${keysText('↓')}, or unlock it and click the word you're on.`,
   };
   const KEYS = [
     ['Space', 'Start / pause'], ['↑ ↓', 'Back / forward a bit'], ['0', 'Back to the start'],
-    ['L', 'Lock / unlock (click-through)'], ['T', 'Hide / show'], ['= −', 'Bigger / smaller text'],
+    ['L', 'Lock / unlock (click-through)'], ['T', 'Hide / show'], ['V', 'Show in / hide from the recording'], ['= −', 'Bigger / smaller text'],
   ];
 
   let settings = core.DEFAULTS;
@@ -57,7 +57,16 @@
     if (state.open) { const dot = document.createElement('span'); dot.className = 'on'; btn.append(dot, 'Close teleprompter'); }
     else btn.append('Open teleprompter');
     btn.classList.toggle('is-open', state.open);
-    q('#tp-open-note').textContent = state.open && !state.visible ? `Hidden. ${MOD}T shows it again.` : '';
+    const note = q('#tp-open-note');
+    note.replaceChildren();
+    if (state.open && !state.visible) {
+      const b = document.createElement('button');
+      b.className = 'pill-btn ghost';
+      b.textContent = 'Show it again';
+      b.addEventListener('click', () => ov.tp.show(true).then((s) => { state = s; renderState(); }));
+      note.append(b, ` It's hidden (${keysText('T')} toggles it).`);
+    }
+    q('#tp-capture').checked = Boolean(state.showInRecording);
     q('#tp-sum').textContent = state.open ? 'Open now' : settings.script.trim() ? count(settings.script).split(' · ')[0] : 'Your script, hidden from the video';
   }
 
@@ -94,6 +103,7 @@
   });
   q('#tp-edit').addEventListener('click', (e) => { e.preventDefault(); q('#tab-prompter').click(); q('#tp-script').focus(); });
   q('#tp-rewind').addEventListener('change', (e) => set({ rewindOnRecord: e.target.checked }));
+  q('#tp-capture').addEventListener('change', async (e) => { state = await ov.tp.showInRecording(e.target.checked); renderState(); });
   q('#tp-open').addEventListener('click', async () => {
     if (!state.open && !q('#tp-script').value.trim()) { q('#tp-script').focus(); notice('Write or import your script first.'); return; }
     clearTimeout(typing);
@@ -104,9 +114,12 @@
 
   q('#tp-keys').replaceChildren(...KEYS.flatMap(([k, what]) => {
     const dt = document.createElement('dt');
-    const kbd = document.createElement('kbd');
-    kbd.textContent = `${MOD}${k}`;
-    dt.append(kbd);
+    core.shortcutKeys(k, ov.platform).forEach((key, i) => {
+      if (i) dt.append('+');
+      const kbd = document.createElement('kbd');
+      kbd.textContent = key;
+      dt.append(kbd);
+    });
     const dd = document.createElement('dd');
     dd.textContent = what;
     return [dt, dd];

@@ -131,7 +131,10 @@
     };
   }
 
-  const api = { MODES, DEFAULTS, normalize, similar, parseScript, scriptWords, follow, scriptHints, sanitizeSettings };
+  // Shortcut keys spelled out for people who don't know ⌃/⌥ by heart: ['⌃ Control', '⌥ Option', 'L'].
+  const shortcutKeys = (key, platform) => (platform === 'darwin' ? ['⌃ Control', '⌥ Option', key] : ['Ctrl', 'Alt', key]);
+
+  const api = { shortcutKeys, MODES, DEFAULTS, normalize, similar, parseScript, scriptWords, follow, scriptHints, sanitizeSettings };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.PrompterCore = api;
 })(typeof window === 'undefined' ? globalThis : window);

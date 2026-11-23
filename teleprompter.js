@@ -20,6 +20,7 @@ const KEYS = {
   'Control+Alt+-': 'smaller',
   'Control+Alt+L': 'lock',
   'Control+Alt+T': 'hide',
+  'Control+Alt+V': 'capture',
 };
 
 module.exports = function setupTeleprompter({ makeWindow, floatAbove, getPanel, onState = () => {} }) {
@@ -29,6 +30,8 @@ module.exports = function setupTeleprompter({ makeWindow, floatAbove, getPanel, 
   let speech = null; // { proc, stopping }
   let saveTimer = null;
   let recState = 'stopped';
+  // Off on every launch on purpose: only turn it on to film the teleprompter itself (e.g. a demo of how it works).
+  let showInRecording = false;
 
   function load() {
     try { return core.sanitizeSettings(JSON.parse(fs.readFileSync(file, 'utf8'))); } catch { return { ...core.DEFAULTS }; }
@@ -43,12 +46,13 @@ module.exports = function setupTeleprompter({ makeWindow, floatAbove, getPanel, 
 
   const isOpen = () => Boolean(win && !win.isDestroyed());
   const send = (w, ch, v) => { if (w && !w.isDestroyed()) w.webContents.send(ch, v); };
-  const state = () => ({ open: isOpen(), visible: isOpen() && win.isVisible(), platform: process.platform, rec: recState });
+  const state = () => ({ open: isOpen(), visible: isOpen() && win.isVisible(), platform: process.platform, rec: recState, showInRecording });
 
   function broadcast() {
     send(getPanel(), 'tp:settings', settings);
     send(win, 'tp:settings', settings);
     send(getPanel(), 'tp:state', state());
+    send(win, 'tp:state', state());
     onState();
   }
 
@@ -85,7 +89,7 @@ module.exports = function setupTeleprompter({ makeWindow, floatAbove, getPanel, 
       minimizable: false, maximizable: false, fullscreenable: false, alwaysOnTop: true, minWidth: 360, minHeight: 140,
       title: 'openVideo teleprompter', // "openVideo…" titles are filtered out of the capture source list
     });
-    win.setContentProtection(true); // visible to you, not to screen recordings or screen sharing
+    win.setContentProtection(!showInRecording); // visible to you, not to screen recordings or screen sharing
     floatAbove(win, 2); // above the drawing overlay, camera bubble and control pill
     applyClickThrough();
     win.once('ready-to-show', () => { win.showInactive(); broadcast(); });
@@ -98,11 +102,24 @@ module.exports = function setupTeleprompter({ makeWindow, floatAbove, getPanel, 
 
   function close() { if (isOpen()) win.close(); }
 
+  function setVisible(on) {
+    if (!isOpen()) { if (on) open(); return; }
+    if (on) win.showInactive(); else win.hide();
+    broadcast();
+  }
+
+  function setShowInRecording(on) {
+    showInRecording = Boolean(on);
+    if (isOpen()) win.setContentProtection(!showInRecording);
+    broadcast();
+  }
+
   function registerKeys() {
     for (const [accel, action] of Object.entries(KEYS)) {
       const handler = () => {
         if (action === 'lock') update({ clickThrough: !settings.clickThrough });
-        else if (action === 'hide') { if (win.isVisible()) win.hide(); else win.showInactive(); send(getPanel(), 'tp:state', state()); }
+        else if (action === 'hide') setVisible(!win.isVisible());
+        else if (action === 'capture') setShowInRecording(!showInRecording);
         else send(win, 'tp:key', action);
       };
       if (!globalShortcut.register(accel, handler)) console.warn(`openVideo: teleprompter shortcut ${accel} is taken`);
@@ -193,6 +210,8 @@ module.exports = function setupTeleprompter({ makeWindow, floatAbove, getPanel, 
     if (size > MAX_IMPORT_BYTES) throw new Error('That file is too big for a script (1 MB max).');
     return update({ script: await fs.promises.readFile(filePaths[0], 'utf8') });
   });
+  ipcMain.handle('tp:show', (_e, on) => { setVisible(on !== false); return state(); });
+  ipcMain.handle('tp:capture', (_e, on) => { setShowInRecording(on); return state(); });
   ipcMain.handle('tp:speech-settings', () => (IS_MAC ? shell.openExternal(SPEECH_SETTINGS_URL) : shell.openExternal('ms-settings:speech')));
   ipcMain.on('tp:listen', (_e, on) => (on ? startSpeech() : stopSpeech()));
 
@@ -206,6 +225,8 @@ module.exports = function setupTeleprompter({ makeWindow, floatAbove, getPanel, 
       send(win, 'tp:rec', next);
     },
     isOpen,
-    toggle() { if (isOpen()) close(); else open(); },
+    // Bar button: open → close, but a hidden teleprompter is brought back instead of closed.
+    toggle() { if (!isOpen()) open(); else if (!win.isVisible()) setVisible(true); else close(); },
+    isVisible: () => isOpen() && win.isVisible(),
   };
 };

@@ -84,7 +84,7 @@ npm start
 
 Open **Teleprompter** in the app, write or import your script (`.txt` / `.md`), and click **Open teleprompter**. It floats at the top of the screen, right under your camera, so your eyes stay near the lens.
 
-- **Only you see it.** The window is content-protected, like the control bar, so it stays out of the recording and out of screen sharing.
+- **Only you see it.** The window is content-protected, like the control bar, so it stays out of the recording and out of screen sharing. Want to show it off? Click **Hidden from video** in its toolbar to switch it to **Showing in video** for that session.
 - **Follow my voice** moves along as you read, using on-device speech recognition on macOS (Windows is in beta and uses Windows speech recognition). **Auto-scroll** runs at a speed you pick and starts and pauses with the recording. **Manual** stays put until you move it.
 - **Click-through** (on by default) lets clicks pass to the app behind it. Turn it off with <kbd>⌃⌥L</kbd> / <kbd>Ctrl+Alt+L</kbd> to drag, resize, or click a word to jump there.
 - **Script format:** a blank line starts a paragraph, `# Title` is a section heading, and `[notes]` are shown small but never read or tracked.
@@ -95,7 +95,8 @@ Open **Teleprompter** in the app, write or import your script (`.txt` / `.md`), 
 | ↑ / ↓ | Back / forward a few words |
 | 0 | Back to the start |
 | L | Lock / unlock (click-through) |
-| T | Hide / show |
+| T | Hide / show (the bar's **Prompter** button and **View → Show / hide teleprompter** bring it back too) |
+| V | Show it in the recording, to film a demo of the teleprompter (off by default, resets on quit) |
 | = / − | Bigger / smaller text |
 
 <img src="docs/screenshots/teleprompter-setup.png" width="700" alt="Teleprompter settings: script editor, scroll mode, size, click-through">
