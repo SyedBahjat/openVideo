@@ -307,17 +307,19 @@ ipcMain.handle('lib:reveal', (_e, name) => shell.showItemInFolder(resolveInside(
 ipcMain.handle('lib:copy', (_e, name) => clipboard.writeText(resolveInside(DIR, name)));
 ipcMain.handle('lib:trash', (_e, name) => shell.trashItem(resolveInside(DIR, name)));
 ipcMain.handle('share:config', () => sharing.publicConfig());
-ipcMain.handle('share:login', () => sharing.login((code) => {
+ipcMain.handle('share:login', (_e, opts) => sharing.login((code) => {
   clipboard.writeText(code.userCode); // so the user can paste it straight into GitHub
   panel?.webContents.send('share-code', code);
-}));
+}, { wantPrivate: Boolean(opts?.wantPrivate) }));
+ipcMain.handle('share:repos', () => sharing.listRepos());
+ipcMain.handle('share:new-name', async (_e, name) => sharing.newRepoName(new Date((await fs.promises.stat(resolveInside(DIR, name))).mtimeMs)));
 ipcMain.handle('share:cancel-login', () => sharing.cancelLogin());
 ipcMain.handle('share:logout', () => sharing.logout());
 ipcMain.handle('star:status', () => sharing.starStatus());
 ipcMain.handle('star:star', () => sharing.star());
 ipcMain.handle('star:nudged', () => sharing.markStarNudged());
-ipcMain.handle('share:upload', async (_e, name) => {
-  const url = await sharing.share(resolveInside(DIR, name), name);
+ipcMain.handle('share:upload', async (_e, name, dest) => {
+  const url = await sharing.share(resolveInside(DIR, name), name, dest);
   clipboard.writeText(url);
   return url;
 });

@@ -177,8 +177,8 @@
   <dialog id="connect" class="sheet" aria-labelledby="connect-h">
     <section data-step="intro">
       <h2 id="connect-h">Share with a link</h2>
-      <p>openVideo saves shared videos to <b>your own GitHub account</b>, in a repo called <span class="mono">openvideo-recordings</span>. It&rsquo;s free, and the videos stay yours.</p>
-      <p class="note">That repo is public: anyone with the link, or who finds the repo, can watch. Don&rsquo;t share anything private.</p>
+      <p>openVideo saves shared videos to <b>your own GitHub account</b>. No openVideo server ever holds your videos, it&rsquo;s free, and they stay yours.</p>
+      <p class="note">For each video you choose the repo and whether it&rsquo;s <b>public</b> (anyone with the link can watch) or <b>private</b> (only people with access to the repo on GitHub can watch).</p>
       <div class="row end"><button class="link" data-close>Not now</button><button id="connect-go" class="rec small" autofocus>Connect GitHub</button></div>
     </section>
     <section data-step="code" hidden>
@@ -188,6 +188,35 @@
       <p class="note">If macOS then asks about <b>&ldquo;openVideo Safe Storage&rdquo;</b>, enter your Mac password and click <b>Always Allow</b>. That&rsquo;s where openVideo keeps your GitHub sign-in, encrypted.</p>
       <p class="note waiting"><span class="spinner" aria-hidden="true"></span>Waiting for you to approve on GitHub&hellip;</p>
       <div class="row end"><button class="link" data-close>Cancel</button><button id="reopen" class="pill-btn">Open GitHub again</button></div>
+    </section>
+    <section data-step="dest" hidden>
+      <h2>Share this video</h2>
+      <p id="dest-video" class="note"></p>
+      <fieldset class="dest">
+        <legend class="eyebrow">Save it to</legend>
+        <label class="dest-opt"><input type="radio" name="dest" value="main">
+          <span><b>My openVideo repo</b><small id="dest-main-note"></small></span></label>
+        <label class="dest-opt" id="dest-existing-opt"><input type="radio" name="dest" value="existing">
+          <span><b>Another openVideo repo</b><select id="dest-existing" aria-label="Repo"></select></span></label>
+        <label class="dest-opt"><input type="radio" name="dest" value="new">
+          <span><b>A new repo just for this video</b><input id="dest-new" class="text-input" spellcheck="false" aria-label="New repo name"></span></label>
+      </fieldset>
+      <div id="dest-vis-block" class="dest-vis">
+        <span class="eyebrow">Who can watch</span>
+        <div class="modes vis-cards" role="radiogroup" aria-label="Who can watch">
+          <button role="radio" data-vis="public" aria-checked="true"><b>Public</b><small>Anyone with the link</small></button>
+          <button role="radio" data-vis="private" aria-checked="false"><b>🔒 Private</b><small>Only people with access to the repo on GitHub</small></button>
+        </div>
+      </div>
+      <p id="dest-vis-note" class="note"></p>
+      <p id="dest-error" class="notice" role="alert" hidden></p>
+      <div class="row end"><button class="link" data-close>Cancel</button><button id="dest-go" class="rec small">Share</button></div>
+    </section>
+    <section data-step="private" hidden>
+      <h2>Allow private repos</h2>
+      <p>To keep videos private, GitHub has to let openVideo create and upload to <b>private</b> repos. GitHub calls this the <b>repo</b> permission. openVideo only uses it for the repos it makes for your videos.</p>
+      <p class="note">You&rsquo;ll approve it on GitHub with a short code, like when you first connected. Viewers of a private video sign in with GitHub, and only people with access to that repo can watch.</p>
+      <div class="row end"><button class="link" data-close>Cancel</button><button id="private-go" class="rec small">Allow private repos</button></div>
     </section>
     <section data-step="account" hidden>
       <h2>Connected as @<span id="acct-login"></span></h2>

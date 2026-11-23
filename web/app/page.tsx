@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import { githubVideos, type GhVideo } from '@/lib/github';
-import { readSession } from '@/lib/session';
+import { readGithubToken, readSession } from '@/lib/session';
 import Recorder from './Recorder';
 import StarButton, { desktopDownloadUrl } from './StarButton';
 import YourVideos from './YourVideos';
@@ -15,7 +15,7 @@ export default async function Home(props: PageProps<'/'>) {
       <main className="landing">
         <p className="wordmark big">open<em>Video</em></p>
         <h1>Record your screen and face.<br />Send a link.</h1>
-        <p className="lede">Open-source async video. Your recordings are stored in your own GitHub account, so they&apos;re free and they stay yours.</p>
+        <p className="lede">Open-source async video. Your recordings are stored in your own GitHub account, public or private, so they&apos;re free and they stay yours.</p>
         {error === 'login' && <p className="notice" role="alert">GitHub sign-in didn&apos;t complete. Try again.</p>}
         <div className="row">
           <a className="rec" href="/api/auth/login"><span className="dot" aria-hidden="true" />Sign in with GitHub</a>
@@ -29,8 +29,9 @@ export default async function Home(props: PageProps<'/'>) {
 
   let videos: GhVideo[] | null = null;
   let loadError = false;
+  const token = await readGithubToken(); // present only if they allowed private repos
   try {
-    videos = await githubVideos(user.login);
+    videos = await githubVideos(user.login, token ?? undefined);
   } catch (err) {
     console.error('[openVideo videos]', err);
     loadError = true;
@@ -49,7 +50,7 @@ export default async function Home(props: PageProps<'/'>) {
       </header>
       <main className="wrap dash">
         <Recorder hasDesktopSetup={videos !== null} />
-        <YourVideos login={user.login} videos={videos} loadError={loadError} />
+        <YourVideos login={user.login} videos={videos} loadError={loadError} showsPrivate={Boolean(token)} />
       </main>
     </>
   );

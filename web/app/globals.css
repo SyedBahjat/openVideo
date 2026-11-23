@@ -151,3 +151,10 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .star.compact { padding: 4px 10px; border-radius: 999px; font-size: 13px; }
 .star-count { padding-left: 8px; border-left: 1px solid var(--rule); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 .landing .hint { margin-top: 18px; }
+
+/* private video sign-in gate */
+.gate-card { max-width: 560px; margin: 8vh auto 0; padding: 32px; border: 1px solid var(--rule); border-radius: 16px; text-align: center; display: grid; gap: 14px; justify-items: center; }
+.gate-card h1 { margin: 0; }
+.gate-card p { margin: 0; }
+.gate-lock { font-size: 40px; }
+.gate-card .hint { font-size: 13px; opacity: 0.75; max-width: 46ch; }

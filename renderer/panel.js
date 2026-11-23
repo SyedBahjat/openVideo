@@ -252,30 +252,122 @@ async function loadLibrary(highlight) {
 function shareActions(it) {
   const url = shareCfg.shares[it.name];
   if (url) {
-    return [
+    const acts = [
       action('Copy link', () => navigator.clipboard.writeText(url).then(() => notice('Link copied.'))),
       action('Open', () => ov.openUrl(url)),
     ];
-  }
-  const b = action('Share', async () => {
-    if (!shareCfg.configured) return notice('Sharing isn\'t available in this build of openVideo.');
-    if (!shareCfg.connected) { pendingShare = () => b.click(); showStep('intro'); return; }
-    b.disabled = true;
-    b.textContent = 'Uploading…';
-    try {
-      const link = await ov.shareUpload(it.name);
-      notice(`Link copied: ${link}`);
-      maybeNudgeStar();
-      await refreshShare();
-      await loadLibrary();
-    } catch (err) {
-      notice(`Share failed: ${errMsg(err)}`);
-      b.disabled = false;
-      b.textContent = 'Share';
+    if (shareCfg.privateShares?.[it.name]) {
+      const tag = document.createElement('span');
+      tag.className = 'private-tag';
+      tag.textContent = '🔒 Private';
+      tag.title = 'Only people with access to the repo on GitHub can watch';
+      acts.unshift(tag);
     }
+    return acts;
+  }
+  const b = action('Share', () => {
+    if (!shareCfg.configured) return notice('Sharing isn\'t available in this build of openVideo.');
+    if (!shareCfg.connected) { pendingShare = () => openDest(it, b); showStep('intro'); return; }
+    openDest(it, b);
   });
   return [b];
 }
+
+async function upload(it, b, dest) {
+  b.disabled = true;
+  b.textContent = 'Uploading…';
+  try {
+    const link = await ov.shareUpload(it.name, dest);
+    notice(`Link copied: ${link}${dest.private ? ' (private: viewers sign in with GitHub)' : ''}`);
+    maybeNudgeStar();
+    await refreshShare();
+    await loadLibrary();
+  } catch (err) {
+    const msg = errMsg(err);
+    b.disabled = false;
+    b.textContent = 'Share';
+    if (msg === 'NEED_PRIVATE') { pendingShare = () => upload(it, b, dest); showStep('private'); return; }
+    notice(`Share failed: ${msg}`);
+  }
+}
+
+// ---------- "Share this video" sheet: which repo, and public or private
+let destFor = null; // { it, b }
+let repos = [];
+let vis = 'public';
+
+const destKind = () => document.querySelector('input[name="dest"]:checked')?.value || 'main';
+
+function setVis(next) {
+  vis = next;
+  document.querySelectorAll('[data-vis]').forEach((x) => x.setAttribute('aria-checked', String(x.dataset.vis === vis)));
+}
+
+// Visibility is chosen only when a repo is being created; an existing repo keeps its own.
+function renderDest() {
+  const kind = destKind();
+  const main = repos.find((r) => r.name === shareCfg.repo);
+  const picked = repos.find((r) => r.name === $('#dest-existing').value);
+  const fixed = kind === 'main' ? main : kind === 'existing' ? picked : null;
+  $('#dest-vis-block').hidden = Boolean(fixed);
+  $('#dest-vis-note').textContent = fixed
+    ? (fixed.private
+      ? `🔒 ${fixed.name} is private: only people you've given access to it on GitHub can watch. They sign in with GitHub.`
+      : `${fixed.name} is public: anyone with the link can watch.`)
+    : (vis === 'private'
+      ? 'Viewers sign in with GitHub, and only people with access to this repo can watch. Add teammates in the repo\'s Settings → Collaborators on GitHub.'
+      : 'Anyone with the link can watch. Don\'t share anything private.');
+  $('#dest-main-note').textContent = `github.com/${shareCfg.login}/${shareCfg.repo}${main ? (main.private ? ' · private' : ' · public') : ' · created on first share'}`;
+  $('#dest-error').hidden = true;
+}
+
+async function openDest(it, b) {
+  destFor = { it, b };
+  $('#dest-video').textContent = it.name.replace(/^openVideo /, '').replace(/\.\w+$/, '');
+  $('#dest-go').disabled = true;
+  showStep('dest');
+  try { repos = await ov.shareRepos(); } catch { repos = []; }
+  const others = repos.filter((r) => r.name !== shareCfg.repo);
+  $('#dest-existing').replaceChildren(...others.map((r) => new Option(`${r.private ? '🔒 ' : ''}${r.name}`, r.name)));
+  $('#dest-existing-opt').hidden = others.length === 0;
+  $('#dest-new').value = await ov.shareNewName(it.name);
+  const last = shareCfg.dest || { kind: 'main' };
+  const kind = last.kind === 'existing' && others.some((r) => r.name === last.repo) ? 'existing' : (last.kind === 'new' ? 'new' : 'main');
+  if (kind === 'existing') $('#dest-existing').value = last.repo;
+  document.querySelector(`input[name="dest"][value="${kind}"]`).checked = true;
+  setVis(last.private ? 'private' : 'public');
+  renderDest();
+  $('#dest-go').disabled = false;
+}
+
+function destChoice() {
+  const kind = destKind();
+  const repo = kind === 'main' ? shareCfg.repo : kind === 'existing' ? $('#dest-existing').value : $('#dest-new').value.trim();
+  const known = repos.find((r) => r.name === repo);
+  return { kind, repo, private: known ? known.private : vis === 'private' };
+}
+
+$('#dest-go').addEventListener('click', () => {
+  const dest = destChoice();
+  if (!/^[A-Za-z0-9._-]{1,100}$/.test(dest.repo) || dest.repo === '.' || dest.repo === '..') {
+    $('#dest-error').hidden = false;
+    $('#dest-error').textContent = 'Repo names can use letters, numbers, - _ and . (up to 100 characters).';
+    return;
+  }
+  if (dest.kind === 'new' && repos.some((r) => r.name === dest.repo)) {
+    $('#dest-error').hidden = false;
+    $('#dest-error').textContent = `You already have ${dest.repo}. Pick it under "Another openVideo repo", or choose a new name.`;
+    return;
+  }
+  const { it, b } = destFor;
+  $('#connect').close();
+  upload(it, b, dest);
+});
+document.querySelectorAll('input[name="dest"]').forEach((r) => r.addEventListener('change', renderDest));
+$('#dest-existing').addEventListener('change', () => { document.querySelector('input[name="dest"][value="existing"]').checked = true; renderDest(); });
+$('#dest-new').addEventListener('focus', () => { document.querySelector('input[name="dest"][value="new"]').checked = true; renderDest(); });
+document.querySelectorAll('[data-vis]').forEach((x) => x.addEventListener('click', () => { setVis(x.dataset.vis); renderDest(); }));
+$('#private-go').addEventListener('click', () => connectGitHub({ wantPrivate: true }));
 
 // The connect sheet: intro -> device code -> (account view when already connected).
 let pendingShare = null; // share the user clicked before connecting; resumed after sign-in
@@ -298,14 +390,15 @@ async function refreshShare() {
   renderShare();
 }
 
-async function connectGitHub() {
+async function connectGitHub(opts = {}) {
   $('#connect-go').disabled = true;
+  $('#private-go').disabled = true;
   try {
-    shareCfg = await ov.shareLogin();
+    shareCfg = await ov.shareLogin(opts);
     const next = pendingShare; // read before close(): the close handler clears it
     pendingShare = null;
     $('#connect').close();
-    notice(`Connected to GitHub as @${shareCfg.login}.`);
+    notice(opts.wantPrivate ? 'Private repos allowed.' : `Connected to GitHub as @${shareCfg.login}.`);
     refreshStar();
     renderShare();
     if (next) next(); // carry on with the share they asked for
@@ -314,10 +407,11 @@ async function connectGitHub() {
     if (msg !== 'Cancelled') { $('#connect').close(); notice(`GitHub sign-in failed: ${msg}`); }
   } finally {
     $('#connect-go').disabled = false;
+    $('#private-go').disabled = false;
   }
 }
 
-$('#connect-go').addEventListener('click', connectGitHub);
+$('#connect-go').addEventListener('click', () => connectGitHub());
 $('#reopen').addEventListener('click', () => { if (deviceUrl) ov.openUrl(deviceUrl); });
 $('#account').addEventListener('click', () => {
   $('#acct-login').textContent = shareCfg.login;

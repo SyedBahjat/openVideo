@@ -24,7 +24,7 @@ The open-source async video recorder for macOS and Windows: a camera bubble, dra
 ## Why openVideo
 
 - **Free, with no account limits.** No 5-minute cap, no "upgrade to keep your videos". Recordings live on your disk, and shared videos live in your own GitHub repo.
-- **Your data stays yours.** openVideo has no video servers at all. Each shared video is a release in `github.com/<you>/openvideo-recordings`.
+- **Your data stays yours.** openVideo has no video servers at all. Each shared video is a release in a repo in **your own** GitHub account, public or private: you choose per video.
 - **Works like the tools you know.** Camera bubble, countdown, pause/resume/restart, drawing, a teleprompter that follows your voice, a global shortcut, and a link in your clipboard the moment you share.
 - **Small, readable code.** Plain Electron + vanilla JS for the desktop app, and Next.js for the site. The only native code is a ~90-line Swift speech helper for the teleprompter.
 
@@ -104,12 +104,12 @@ Open **Teleprompter** in the app, write or import your script (`.txt` / `.md`), 
 ## Share links: how storage works
 
 1. In the app, open **Sharing** → **Connect GitHub**. Your browser opens GitHub with a short code. Check that it matches the app and click **Authorize**.
-2. Click **Share** on any recording. The first share creates the public repo `openvideo-recordings` in **your** account. The video is uploaded as a release asset (up to 2 GB per file), and a link like `https://<site>/v/gh/<you>/<id>` is copied to your clipboard.
+2. Click **Share** on any recording and pick where it goes: your main `openvideo-recordings` repo, another openVideo repo, or **a new repo just for this video** (the name is filled in for you). When a repo is created you choose **Public** or **Private**. The video is uploaded as a release asset (up to 2 GB per file), and the link is copied to your clipboard.
 
 > [!IMPORTANT]
-> The repo is **public**, which is what makes storage free and lets anyone with the link watch. Don't share anything private. Delete a video by deleting its release on GitHub.
+> **Public** repos: anyone with the link can watch, and storage is free. **Private** repos: only people with access to the repo on GitHub can watch. They sign in with GitHub on the watch page (add teammates under the repo's Settings → Collaborators). Delete a video by deleting its release on GitHub.
 
-The GitHub token is stored encrypted with the OS keychain (Keychain on macOS, DPAPI on Windows), and the app only asks for the `public_repo` scope. On macOS you may be asked to let openVideo use **"openVideo Safe Storage"** the first time you share after installing or updating. Click **Always Allow**. (Builds aren't Developer ID-signed yet, so macOS asks again after each update.)
+The GitHub token is stored encrypted with the OS keychain (Keychain on macOS, DPAPI on Windows), and the app asks for the `public_repo` scope, plus `repo` only the first time you pick **Private** (GitHub has no narrower permission for private repos). On macOS you may be asked to let openVideo use **"openVideo Safe Storage"** the first time you share after installing or updating. Click **Always Allow**. (Builds aren't Developer ID-signed yet, so macOS asks again after each update.)
 
 ## Deploy the website to Vercel
 
@@ -147,7 +147,8 @@ openVideo follows the same architecture as Loom Desktop ([teardown with evidence
    ├─ countdown        content-protected
    └─ teleprompter     content-protected, click-through → hidden from the video
 
- Share ── GitHub device flow ──► POST /repos/<you>/openvideo-recordings/releases ──► upload asset ──► https://<site>/v/gh/<you>/<id>
+ Share ── GitHub device flow ──► POST /repos/<you>/<repo>/releases ──► upload asset ──► https://<site>/v/gh/<you>/[<repo>/]<id>
+ Private ── viewer signs in with GitHub ──► /api/media checks their access ──► 302 to GitHub's short-lived signed URL
 ```
 
 ```

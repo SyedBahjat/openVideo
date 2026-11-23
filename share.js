@@ -1,5 +1,6 @@
-// Share links for the desktop app. Each user's videos go to THEIR OWN public repo <login>/openvideo-recordings
-// as release assets (free, up to 2 GB per file). The link points at the website's /v/gh watch page.
+// Share links for the desktop app. Videos go to the user's OWN GitHub repos as release assets (free, up to 2 GB per
+// file): the main <login>/openvideo-recordings repo, or any repo openVideo created (tagged with the "openvideo" topic),
+// public or private. The link points at the website's /v/gh watch page; private videos ask viewers to sign in.
 // Sign-in is GitHub's device flow, so the app never needs a client secret.
 const { app, safeStorage, shell } = require('electron');
 const fs = require('node:fs');
@@ -15,10 +16,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const cfgPath = () => path.join(app.getPath('userData'), 'share-config.json');
 const tokenPath = () => path.join(app.getPath('userData'), 'github-token.bin');
+const TOPIC = 'openvideo'; // marks repos openVideo created, so the app can offer them again
 const DEFAULTS = {
   login: '',
+  scopes: '', // OAuth scopes granted ("public_repo" or "repo")
+  dest: { kind: 'main', repo: GH_REPO, private: false }, // last destination picked in the share sheet
   shares: {}, // recording file name -> share URL
+  privateShares: {}, // recording file name -> true when it went to a private repo
 };
+const { repoNameOk, newRepoName } = require('./lib');
 
 function readConfig() {
   try { return { ...DEFAULTS, ...JSON.parse(fs.readFileSync(cfgPath(), 'utf8')) }; } catch { return { ...DEFAULTS }; }
@@ -47,8 +53,9 @@ function loadToken() {
 const hasToken = () => fs.existsSync(tokenPath()); // no decrypt, so no keychain prompt
 
 function publicConfig() {
-  const { login, shares } = readConfig();
-  return { configured: Boolean(SITE_URL && GITHUB_CLIENT_ID), login, shares, connected: hasToken(), repo: GH_REPO };
+  const { login, shares, privateShares, dest, scopes } = readConfig();
+  return { configured: Boolean(SITE_URL && GITHUB_CLIENT_ID), login, shares, privateShares, dest, connected: hasToken(), repo: GH_REPO,
+    canPrivate: /(^|[\s,])repo($|[\s,])/.test(scopes) };
 }
 
 function logout() {
@@ -82,12 +89,13 @@ function cancelLogin() {
   if (activeLogin) activeLogin.cancelled = true;
 }
 
-async function login(onCode) {
+async function login(onCode, { wantPrivate = false } = {}) {
   const clientId = GITHUB_CLIENT_ID;
   if (!clientId) throw new Error('Sharing isn\'t set up in this build of openVideo.');
   const attempt = { cancelled: false };
   activeLogin = attempt;
-  const code = await postForm('https://github.com/login/device/code', { client_id: clientId, scope: 'public_repo' });
+  // "repo" (private repos) is only requested when the user picks Private; everyone else keeps the narrower scope.
+  const code = await postForm('https://github.com/login/device/code', { client_id: clientId, scope: wantPrivate ? 'repo' : 'public_repo' });
   if (code.error === 'Not Found' || code.error === 'incorrect_client_credentials') {
     throw new Error('GitHub doesn\'t recognise this build\'s app ID. Please update openVideo.');
   }
@@ -107,7 +115,7 @@ async function login(onCode) {
     if (r.access_token) {
       const user = await ghJson('/user', r.access_token);
       saveToken(r.access_token);
-      writeConfig({ login: user.login });
+      writeConfig({ login: user.login, scopes: r.scope || '' });
       return publicConfig();
     }
     if (r.error === 'slow_down') interval += 5000;
@@ -118,23 +126,45 @@ async function login(onCode) {
   throw new Error('GitHub sign-in timed out. Try again.');
 }
 
-async function ensureRepo(token, owner) {
-  const res = await ghFetch(`/repos/${owner}/${GH_REPO}`, token);
-  if (res.ok) return;
-  if (res.status !== 404) throw new Error(`GitHub API ${res.status} while checking ${owner}/${GH_REPO}`);
+/** Use the repo if it exists (it keeps its own visibility), otherwise create it. Returns { private }. */
+async function ensureRepo(token, owner, repo, wantPrivate) {
+  const res = await ghFetch(`/repos/${owner}/${repo}`, token);
+  if (res.ok) {
+    const r = await res.json();
+    if (repo !== GH_REPO && !(r.topics || []).includes(TOPIC)) {
+      throw new Error(`You already have a repo called ${repo} that openVideo didn't create. Pick another name.`);
+    }
+    return { private: Boolean(r.private) };
+  }
+  if (res.status !== 404) throw new Error(`GitHub API ${res.status} while checking ${owner}/${repo}`);
   // auto_init: releases need at least one commit to tag.
-  await ghJson('/user/repos', token, { method: 'POST', body: JSON.stringify({
-    name: GH_REPO, description: 'Videos recorded with openVideo. Public: anyone can watch them.',
-    private: false, auto_init: true, has_issues: false, has_wiki: false, has_projects: false,
+  const created = await ghJson('/user/repos', token, { method: 'POST', body: JSON.stringify({
+    name: repo, private: Boolean(wantPrivate), auto_init: true, has_issues: false, has_wiki: false, has_projects: false,
+    description: wantPrivate ? 'Videos recorded with openVideo. Private: only people with access can watch.'
+      : 'Videos recorded with openVideo. Public: anyone with the link can watch.',
   }) });
+  await ghFetch(`/repos/${owner}/${repo}/topics`, token, { method: 'PUT', body: JSON.stringify({ names: [TOPIC] }) }).catch(() => {});
+  return { private: Boolean(created.private) };
 }
 
-async function toGithub(cfg, token, blob, type, title) {
+/** The user's openVideo repos (main one + any tagged "openvideo"), newest first, for the share sheet. */
+async function listRepos() {
+  const token = loadToken();
+  if (!token) return [];
+  const cfg = readConfig();
+  const visibility = publicConfig().canPrivate ? 'all' : 'public';
+  const repos = await ghJson(`/user/repos?affiliation=owner&visibility=${visibility}&sort=created&per_page=100`, token);
+  return repos
+    .filter((r) => r.owner?.login === cfg.login && (r.name === GH_REPO || (r.topics || []).includes(TOPIC)))
+    .map((r) => ({ name: r.name, private: Boolean(r.private) }));
+}
+
+async function toGithub(cfg, token, blob, type, title, repo, wantPrivate) {
   if (blob.size > GH_MAX_BYTES) throw new Error('GitHub only accepts files under 2 GB. Trim or split this recording first.');
   const owner = cfg.login;
-  await ensureRepo(token, owner);
+  const { private: isPrivate } = await ensureRepo(token, owner, repo, wantPrivate);
   const tag = crypto.randomBytes(12).toString('base64url'); // same 16-char id format the website validates
-  const createRelease = () => ghJson(`/repos/${owner}/${GH_REPO}/releases`, token, {
+  const createRelease = () => ghJson(`/repos/${owner}/${repo}/releases`, token, {
     method: 'POST', body: JSON.stringify({ tag_name: tag, name: title, body: 'Recorded with openVideo.' }),
   });
   // A repo created a moment ago can briefly reject releases; retry a few times.
@@ -146,16 +176,17 @@ async function toGithub(cfg, token, blob, type, title) {
     }
   }
   const ext = type === 'video/webm' ? 'webm' : 'mp4';
-  const up = await ghFetch(`https://uploads.github.com/repos/${owner}/${GH_REPO}/releases/${release.id}/assets?name=video.${ext}`, token, {
+  const up = await ghFetch(`https://uploads.github.com/repos/${owner}/${repo}/releases/${release.id}/assets?name=video.${ext}`, token, {
     method: 'POST', headers: { 'Content-Type': type }, body: blob,
   });
   if (!up.ok) {
     // Don't leave an empty release + tag behind.
-    await ghFetch(`/repos/${owner}/${GH_REPO}/releases/${release.id}`, token, { method: 'DELETE' }).catch(() => {});
-    await ghFetch(`/repos/${owner}/${GH_REPO}/git/refs/tags/${tag}`, token, { method: 'DELETE' }).catch(() => {});
+    await ghFetch(`/repos/${owner}/${repo}/releases/${release.id}`, token, { method: 'DELETE' }).catch(() => {});
+    await ghFetch(`/repos/${owner}/${repo}/git/refs/tags/${tag}`, token, { method: 'DELETE' }).catch(() => {});
     throw new Error(`GitHub upload failed (HTTP ${up.status})`);
   }
-  return new URL(`/v/gh/${owner}/${tag}`, SITE_URL).href;
+  // The main repo keeps the original short link format; other repos carry their name in the link.
+  return { isPrivate, url: new URL(repo === GH_REPO ? `/v/gh/${owner}/${tag}` : `/v/gh/${owner}/${repo}/${tag}`, SITE_URL).href };
 }
 
 // Turn GitHub API failures into something a non-developer can act on.
@@ -165,21 +196,37 @@ function explain(err) {
     return new Error('GitHub refused: openVideo is missing permission to create your repo or upload to it. Disconnect, then Connect GitHub again and click Authorize.');
   }
   if (err.status === 422 && /name already exists/i.test(err.message)) {
-    return new Error(`You already have a repo named ${GH_REPO} that openVideo can't use. Rename it on GitHub, then try again.`);
+    return new Error('A repo with that name already exists on your GitHub. Pick another name.');
   }
   return err;
 }
 
-async function share(file, name) {
+/**
+ * dest: { kind: 'main' | 'existing' | 'new', repo, private }. 'main' = openvideo-recordings.
+ * Trust boundary: dest comes from the renderer, so the repo name is validated here.
+ */
+async function share(file, name, dest = readConfig().dest) {
   const cfg = readConfig();
   const token = loadToken();
   if (!SITE_URL) throw new Error('Sharing isn\'t set up in this build of openVideo.');
   if (!token) throw new Error('Connect GitHub first.');
+  const kind = ['main', 'existing', 'new'].includes(dest?.kind) ? dest.kind : 'main';
+  const repo = kind === 'main' ? GH_REPO : String(dest.repo || '');
+  if (!repoNameOk(repo)) throw new Error('Repo names can use letters, numbers, - _ and . (up to 100 characters).');
+  const wantPrivate = Boolean(dest?.private);
+  if (wantPrivate && !publicConfig().canPrivate) {
+    throw new Error('NEED_PRIVATE'); // the panel turns this into the "Allow private repos" step
+  }
   const type = name.toLowerCase().endsWith('.webm') ? 'video/webm' : 'video/mp4';
   const blob = await fs.openAsBlob(file, { type }); // streamed from disk, not loaded into memory
   const title = `Recording ${name.replace(/^openVideo /, '').replace(/\.\w+$/, '')}`;
-  const url = await toGithub(cfg, token, blob, type, title).catch((err) => { throw explain(err); });
-  writeConfig({ shares: { ...readConfig().shares, [name]: url } });
+  const { url, isPrivate } = await toGithub(cfg, token, blob, type, title, repo, wantPrivate).catch((err) => { throw explain(err); });
+  const now = readConfig();
+  writeConfig({
+    shares: { ...now.shares, [name]: url },
+    privateShares: { ...now.privateShares, [name]: isPrivate },
+    dest: { kind: kind === 'new' ? 'existing' : kind, repo, private: isPrivate }, // next time, offer the same repo
+  });
   return url;
 }
 
@@ -204,4 +251,4 @@ async function star() {
 
 const markStarNudged = () => { writeConfig({ starNudged: true }); };
 
-module.exports = { publicConfig, login, cancelLogin, logout, share, starStatus, star, markStarNudged };
+module.exports = { GH_REPO, newRepoName, publicConfig, login, cancelLogin, logout, share, listRepos, starStatus, star, markStarNudged };

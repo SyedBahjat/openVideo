@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('ov', {
   shareCancelLogin: call('share:cancel-login'),
   shareLogout: call('share:logout'),
   shareUpload: call('share:upload'),
+  shareRepos: call('share:repos'),
+  shareNewName: call('share:new-name'),
   openUrl: call('share:open'),
   onShareCode: listen('share-code'),
   starStatus: call('star:status'),

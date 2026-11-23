@@ -18,4 +18,13 @@ function recordingName(date, ext) {
   return `openVideo ${d} at ${t}${ext}`;
 }
 
-module.exports = { EXTS, resolveInside, recordingName };
+// GitHub repo names: letters, digits, - _ . (no "." or ".." on their own), max 100 chars.
+const repoNameOk = (n) => typeof n === 'string' && /^[A-Za-z0-9._-]{1,100}$/.test(n) && n !== '.' && n !== '..';
+
+// Default name for "a new repo just for this video": openvideo-2026-11-24-0258 (from the recording's date).
+function newRepoName(date) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `openvideo-${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}-${p(date.getHours())}${p(date.getMinutes())}`;
+}
+
+module.exports = { EXTS, resolveInside, recordingName, repoNameOk, newRepoName };
