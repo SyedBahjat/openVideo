@@ -28,3 +28,16 @@ $('pause').addEventListener('click', () => ov.control(paused ? 'resume' : 'pause
 $('restart').addEventListener('click', () => ov.control('restart'));
 $('cancel').addEventListener('click', () => ov.control('cancel'));
 setInterval(tick, 250);
+
+// "Show in recording" switches, reachable mid-recording. Pressed = visible in the video.
+function renderVis(v) {
+  for (const [id, on, what] of [['v-app', v.app, 'openVideo window'], ['v-tp', v.teleprompter, 'teleprompter']]) {
+    $(id).setAttribute('aria-pressed', String(Boolean(on)));
+    $(id).title = on ? `The ${what} IS in the recording. Click to hide it.` : `The ${what} is hidden from the recording. Click to show it.`;
+  }
+}
+let vis = { app: false, teleprompter: false };
+ov.vis.on((v) => { vis = v; renderVis(v); });
+ov.vis.get().then((v) => { vis = v; renderVis(v); });
+$('v-app').addEventListener('click', () => ov.vis.set('app', !vis.app));
+$('v-tp').addEventListener('click', () => ov.vis.set('teleprompter', !vis.teleprompter));

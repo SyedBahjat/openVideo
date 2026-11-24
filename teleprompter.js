@@ -23,15 +23,15 @@ const KEYS = {
   'Control+Alt+V': 'capture',
 };
 
-module.exports = function setupTeleprompter({ makeWindow, floatAbove, getPanel, onState = () => {} }) {
+module.exports = function setupTeleprompter({ makeWindow, floatAbove, getPanel, onState = () => {}, showInRecording: initialShow = false }) {
   const file = path.join(app.getPath('userData'), 'teleprompter.json');
   let settings = load();
   let win = null;
   let speech = null; // { proc, stopping }
   let saveTimer = null;
   let recState = 'stopped';
-  // Off on every launch on purpose: only turn it on to film the teleprompter itself (e.g. a demo of how it works).
-  let showInRecording = false;
+  // Hidden from recordings unless the user turned "show in recording" on (remembered by main.js between launches).
+  let showInRecording = initialShow;
 
   function load() {
     try { return core.sanitizeSettings(JSON.parse(fs.readFileSync(file, 'utf8'))); } catch { return { ...core.DEFAULTS }; }
@@ -110,7 +110,11 @@ module.exports = function setupTeleprompter({ makeWindow, floatAbove, getPanel, 
 
   function setShowInRecording(on) {
     showInRecording = Boolean(on);
-    if (isOpen()) win.setContentProtection(!showInRecording);
+    if (isOpen()) {
+      win.setContentProtection(!showInRecording);
+      // A running recording only picks up a window when it appears; re-show so it's captured (see main.js reshow).
+      if (showInRecording && win.isVisible()) { win.hide(); win.showInactive(); }
+    }
     broadcast();
   }
 
@@ -225,6 +229,11 @@ module.exports = function setupTeleprompter({ makeWindow, floatAbove, getPanel, 
       send(win, 'tp:rec', next);
     },
     isOpen,
+    showsInRecording: () => showInRecording,
+    setShowInRecording,
+    // Re-assert the window's capture setting (see main.js: something can flip it back during a recording).
+    reapply() { if (isOpen()) win.setContentProtection(!showInRecording); },
+    reshow() { if (isOpen() && win.isVisible()) { win.hide(); win.showInactive(); } },
     // Bar button: open → close, but a hidden teleprompter is brought back instead of closed.
     toggle() { if (!isOpen()) open(); else if (!win.isVisible()) setVisible(true); else close(); },
     isVisible: () => isOpen() && win.isVisible(),

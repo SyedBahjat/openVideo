@@ -96,7 +96,7 @@ Open **Teleprompter** in the app, write or import your script (`.txt` / `.md`), 
 | 0 | Back to the start |
 | L | Lock / unlock (click-through) |
 | T | Hide / show (the bar's **Prompter** button and **View → Show / hide teleprompter** bring it back too) |
-| V | Show it in the recording, to film a demo of the teleprompter (off by default, resets on quit) |
+| V | Show it in the recording, to film a demo of the teleprompter (off by default; remembered) |
 | = / − | Bigger / smaller text |
 
 <img src="docs/screenshots/teleprompter-setup.png" width="700" alt="Teleprompter settings: script editor, scroll mode, size, click-through">

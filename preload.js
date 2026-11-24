@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('ov', {
   permissions: call('permissions'),
   requestPermission: call('permissions:request'),
   relaunch: call('app:relaunch'),
-  showAppInRecording: call('app:show-in-recording'),
+  vis: { get: call('vis:get'), set: call('vis:set'), on: listen('vis') },
   onPermissionsChanged: listen('permissions-changed'),
   countdown: call('countdown'),
   recStart: call('rec:start'),

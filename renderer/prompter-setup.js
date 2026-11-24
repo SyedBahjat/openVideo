@@ -104,16 +104,17 @@
   });
   q('#tp-edit').addEventListener('click', (e) => { e.preventDefault(); q('#tab-prompter').click(); q('#tp-script').focus(); });
   q('#tp-rewind').addEventListener('change', (e) => set({ rewindOnRecord: e.target.checked }));
-  q('#tp-capture').addEventListener('change', async (e) => { state = await ov.tp.showInRecording(e.target.checked); renderState(); });
-  q('#tp-in-video').addEventListener('change', async (e) => { state = await ov.tp.showInRecording(e.target.checked); renderState(); });
-  // The app window switch is remembered on this computer (it's about tutorials, not your script).
-  const appInVideo = (() => { try { return localStorage.getItem('ov.appInVideo') === '1'; } catch { return false; } })();
-  q('#app-in-video').checked = appInVideo;
-  if (appInVideo) { ov.showAppInRecording(true); q('#in-video').open = true; }
-  q('#app-in-video').addEventListener('change', (e) => {
-    ov.showAppInRecording(e.target.checked);
-    try { localStorage.setItem('ov.appInVideo', e.target.checked ? '1' : '0'); } catch { /* private mode etc. */ }
-  });
+  q('#tp-capture').addEventListener('change', (e) => ov.vis.set('teleprompter', e.target.checked));
+  q('#tp-in-video').addEventListener('change', (e) => ov.vis.set('teleprompter', e.target.checked));
+  q('#app-in-video').addEventListener('change', (e) => ov.vis.set('app', e.target.checked));
+  const showVis = (v) => {
+    q('#app-in-video').checked = v.app;
+    q('#tp-in-video').checked = v.teleprompter;
+    q('#tp-capture').checked = v.teleprompter;
+    if (v.app || v.teleprompter) q('#in-video').open = true;
+  };
+  ov.vis.on(showVis);
+  ov.vis.get().then(showVis);
   q('#tp-open').addEventListener('click', async () => {
     if (!state.open && !q('#tp-script').value.trim()) { q('#tp-script').focus(); notice('Write or import your script first.'); return; }
     clearTimeout(typing);

@@ -44,13 +44,14 @@ function floatAbove(w, relativeLevel = 1) {
 
 function createPanel() {
   panel = makeWindow('panel.html', { width: 1080, height: 780, minWidth: 880, minHeight: 620, title: 'openVideo' });
-  panel.setContentProtection(true); // keep the setup UI out of recordings (switchable for tutorials, see below)
+  panel.setContentProtection(!appInVideo); // hidden from recordings unless "show in recording" is on (see below)
   panel.once('ready-to-show', () => {
     panel.show();
     if (IS_MAC) app.focus({ steal: true }); // first launch from Finder/installer: put the panel in front
   });
   panel.on('closed', () => app.quit());
   for (const ev of ['show', 'hide', 'minimize', 'restore']) panel.on(ev, () => setImmediate(updateCamera));
+  for (const ev of ['show', 'focus', 'restore']) panel.on(ev, () => setImmediate(applyVisibility));
 }
 
 // --- Camera bubble: a transparent, draggable, always-on-top circle that IS captured in the screen recording.
@@ -83,12 +84,12 @@ function showCamera(deviceId) {
 function showControls() {
   if (controls && !controls.isDestroyed()) return controls.showInactive();
   const { workArea } = screen.getPrimaryDisplay();
-  const [width, height] = [340, 56];
+  const [width, height] = [470, 56];
   controls = makeWindow('controls.html', { ...OVERLAY, width, height,
     x: Math.round(workArea.x + (workArea.width - width) / 2), y: workArea.y + workArea.height - height - 24 });
   controls.setContentProtection(true);
   floatAbove(controls);
-  controls.once('ready-to-show', () => controls.showInactive());
+  controls.once('ready-to-show', () => { controls.showInactive(); controls.webContents.send('vis', visibility()); });
 }
 
 function hideControls() {
@@ -126,6 +127,8 @@ function hideDrawing() {
 
 function backToPanel() {
   camHold = false;
+  clearInterval(visTimer);
+  visTimer = null;
   hideDrawing();
   hideControls();
   showLauncher();
@@ -257,10 +260,54 @@ ipcMain.handle('permissions:request', async (_e, kind) => {
 });
 
 // "Show openVideo in the recording": for tutorials about openVideo itself. Works mid-recording.
-ipcMain.handle('app:show-in-recording', (_e, on) => {
-  panel.setContentProtection(!on);
-  return Boolean(on);
-});
+// "Show in recording" for the app window and the teleprompter. Main is the only owner of both settings; the panel and
+// the recording control pill just display and toggle them. The app-window one is remembered between launches.
+const visPath = () => path.join(app.getPath('userData'), 'show-in-recording.json');
+// Both switches are remembered between launches: a setting that silently resets is worse than one you set yourself.
+const savedVis = (() => { try { return JSON.parse(fs.readFileSync(visPath(), 'utf8')); } catch { return {}; } })();
+let appInVideo = savedVis.app === true;
+
+function applyVisibility() {
+  if (panel && !panel.isDestroyed()) panel.setContentProtection(!appInVideo);
+  prompter?.reapply();
+}
+
+function visibility() {
+  return { app: appInVideo, teleprompter: prompter.showsInRecording() };
+}
+
+function broadcastVisibility() {
+  const v = visibility();
+  fs.promises.writeFile(visPath(), JSON.stringify(v)).catch(() => {});
+  for (const w of [panel, controls]) if (w && !w.isDestroyed()) w.webContents.send('vis', v);
+}
+
+// macOS only adds a window to a running screen recording when the window appears. A window that appeared while it was
+// hidden from capture stays out of the recording even after it's made shareable, so re-show it to get it picked up.
+function reshow(w, focus) {
+  if (!w || w.isDestroyed() || !w.isVisible()) return;
+  w.hide();
+  if (focus) w.show(); else w.showInactive();
+}
+
+function setVisibility(which, on) {
+  if (which === 'app') {
+    appInVideo = Boolean(on);
+  } else if (which === 'teleprompter') prompter.setShowInRecording(Boolean(on));
+  applyVisibility();
+  if (on) {
+    if (which === 'app') reshow(panel, panel.isFocused());
+  }
+  broadcastVisibility();
+  return visibility();
+}
+
+ipcMain.handle('vis:get', visibility);
+ipcMain.handle('vis:set', (_e, which, on) => setVisibility(String(which), on));
+
+// ponytail: macOS/Chromium can quietly drop a window's "shareable" state mid-recording (seen in the wild, trigger not
+// pinned down). Re-asserting it every second while recording is idempotent and cheap; find the trigger to remove this.
+let visTimer = null;
 
 // macOS only applies a new Screen Recording permission after the app restarts.
 ipcMain.handle('app:relaunch', () => { app.relaunch(); app.exit(0); });
@@ -291,6 +338,8 @@ ipcMain.handle('rec:start', async (_e, ext, withDrawing) => {
   rec.out.on('error', (err) => panel.webContents.send('rec-error', err.message));
   showControls();
   if (withDrawing) showDrawing();
+  clearInterval(visTimer);
+  visTimer = setInterval(applyVisibility, 1000);
   prompter.recording('recording');
   return file;
 });
@@ -394,7 +443,7 @@ app.whenReady().then(() => {
     }
   });
 
-  prompter = setupTeleprompter({ makeWindow, floatAbove, getPanel: () => panel, onState: sendBar });
+  prompter = setupTeleprompter({ makeWindow, floatAbove, getPanel: () => panel, showInRecording: savedVis.teleprompter === true, onState: () => { sendBar(); broadcastVisibility(); } });
   createPanel();
   showLauncher();
   // Everything that can be hidden can be brought back from here (or by clicking the Dock icon).
